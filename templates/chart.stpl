@@ -1,0 +1,7 @@
+<div style="width: <%- width  %>;height:<%- height %>;">
+    <canvas id="<%= chart_target_id %>"></canvas>
+</div>
+<script type="text/javascript">
+     var chart_target = document.getElementById("<%= chart_target_id %>");
+     var chart = new Chart(chart_target, <%- options | json %>)
+</script>

@@ -1,23 +1,85 @@
 use serde::{Deserialize, Serialize};
-use crate::colour::Rgb;
+use uuid::Uuid;
+use crate::common::{Padding, Rgb, Size};
+use crate::options::ChartData::Vector2D;
+use crate::render::Chart;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ChartConfig<X,Y> {
-    r#type: ChartType,
 
-    data: ChartData<X,Y>,
+
+    data: ChartDataSection<X,Y>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     options: Option<ChartOptions>
 }
 
-impl<X,Y> ChartConfig<X,Y> {
-    pub fn new(r#type: ChartType, data: ChartData<X,Y>, options: Option<ChartOptions>) -> Self {
+impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
+
+    pub fn new(options: Option<ChartOptions>) -> Self {
         Self {
-            r#type,
-            data,
+            data: ChartDataSection {
+                labels: None,
+                datasets: vec![],
+            },
             options
+        }
+    }
+
+    pub fn title_str(mut self, text: String) -> Self {
+        let mut options = self.options.unwrap_or(ChartOptions::default());
+        let mut plugins = options.plugins.unwrap_or(vec![]);
+        plugins.push(
+            Plugin::Title(Title{
+                display: true,
+                full_size: false,
+                text: vec![text],
+                padding: None,
+                position: None,
+            })
+        );
+        options.plugins = Some(plugins);
+        self.options = Some(options);
+        self
+    }
+
+
+    pub fn add_series<T: Into<ChartData<X,Y>>>(mut self, r#type: ChartType, title:String, data: T)->Self{
+        let mut chart_data = self.data;
+        let mut datasets = chart_data.datasets;
+        datasets.push(Dataset{
+            r#type,
+            label: title,
+            data: data.into(),
+            fill: None,
+            border_color: None,
+            background_color: None,
+        });
+        chart_data.datasets = datasets;
+        self.data = chart_data;
+        self
+    }
+
+    pub fn enable_legend(mut self) ->  Self {
+        todo!()
+    }
+    
+    pub fn build(self, width: Size, height: Size) -> Chart<X,Y>{
+        Chart::new(Uuid::new_v4().to_string(), width, height, self)
+    }
+    
+}
+
+
+impl<X,Y> Default for ChartConfig<X,Y>{
+    fn default() -> Self {
+        ChartConfig{
+            data: ChartDataSection {
+                labels: None,
+                datasets: vec![],
+            },
+            options: None,
         }
     }
 }
@@ -38,7 +100,7 @@ pub enum ChartType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ChartData<X,Y>{
+pub struct ChartDataSection<X,Y>{
 
     #[serde(skip_serializing_if = "Option::is_none")]
     labels: Option<Vec<String>>,
@@ -50,9 +112,11 @@ pub struct ChartData<X,Y>{
 #[serde(rename_all = "camelCase")]
 pub struct Dataset<X,Y>{
 
+    r#type: ChartType,
+
     label: String,
 
-    data: Vec<DataElement<X,Y>>,
+    data: ChartData<X,Y>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     fill: Option<Fill>,
@@ -64,8 +128,38 @@ pub struct Dataset<X,Y>{
     background_color: Option<Rgb>
 }
 
+impl<X,Y> From<(X,Y)> for DataElement<X,Y>{
+    fn from(value: (X, Y)) -> Self {
+        DataElement{
+            x: value.0,
+            y: value.1,
+            r: None,
+        }
+    }
+}
+
+impl<X,Y> From<Vec<(X,Y)>> for ChartData<X,Y>{
+    fn from(value: Vec<(X, Y)>) -> Self {
+       Vector2D(value.into_iter().map(|x| x.into()).collect())
+    }
+}
+
+impl<const N: usize,X,Y> From<[(X,Y);N]> for ChartData<X,Y>{
+    fn from(value: [(X,Y);N]) -> Self {
+        Vector2D(value.into_iter().map(|x| x.into()).collect())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct DataElement<X,Y>{
+#[serde(untagged)]
+pub enum ChartData<X,Y>{
+    Vector2D(Vec<DataElement<X,Y>>) 
+}
+
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DataElement<X,Y>{
     x: X,
     y: Y,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -116,6 +210,17 @@ pub struct ChartOptions{
     #[serde(skip_serializing_if = "Option::is_none")]
     scales: Option<ScalingConfig>,
     aspect_ratio: Option<u8>,
+    plugins: Option<Vec<Plugin>>,
+}
+
+impl Default for ChartOptions{
+    fn default() -> Self {
+        ChartOptions{
+            scales: None,
+            aspect_ratio: None,
+            plugins: None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -171,3 +276,43 @@ pub enum Alignment{
     Center,
     End
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum Plugin{
+    Title(Title)
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+enum Position{
+    Top,
+    Left,
+    Bottom,
+    Right
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Title{
+    ///Is the title shown?
+    display: bool,
+
+    ///Marks that this box should take the full width/height of the canvas. If false, the box is sized and placed above/beside the chart area.
+    full_size: bool,
+
+    ///Title text to display. If specified as an array, text is rendered on multiple lines.
+    text: Vec<String>,
+
+    ///Padding to apply around the title. Only top and bottom are implemented.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    padding: Option<Padding>,
+
+    ///position of the title
+    #[serde(skip_serializing_if = "Option::is_none")]
+    position: Option<Position>
+
+}
+
+
+
