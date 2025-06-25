@@ -95,7 +95,7 @@ impl<X> ChartConfig<X, X> where ChartConfig<X, X>:Serialize, X:Scalar + Lapack +
     pub fn add_linear_regression_series<T: Into<ChartData<X,X>>>(self, title: &str, data: T) -> Result<Self, LinalgError> {
         let data:Vec<(X,X)>  = data.into().into();
         let n = data.len();
-        let s = self.add_series(ChartType::Scatter,title.to_string(),data.clone());
+        let config_with_scatter = self.add_series(ChartType::Scatter, title.to_string(), data.clone());
         
         // Allocate design matrix with shape (n, 2)
         let mut x_matrix = Array2::<X>::zeros((n, 2));
@@ -117,9 +117,10 @@ impl<X> ChartConfig<X, X> where ChartConfig<X, X>:Serialize, X:Scalar + Lapack +
             reg_data.push((x_matrix[[i,1]],x));
         });
         
-        let s = s.add_series(ChartType::Line,format!("{} regression(R^2 = {:.4})",title,r2),reg_data);
+        let config_with_both_charts = 
+            config_with_scatter.add_series(ChartType::Line, format!("{} regression(R^2 = {:.4})", title, r2), reg_data);
         
-        Ok(s)
+        Ok(config_with_both_charts)
     }
 
 
@@ -155,7 +156,16 @@ impl<X> ChartConfig<X, X> where ChartConfig<X, X>:Serialize, X:Scalar + Lapack +
                 diff * diff
             })
             .sum::<f64>();
-
+        
+        if ss_tot == 0.0 {
+            // All y_true are constant
+            return if ss_res == 0.0 {
+                1.0  // Perfect fit
+            } else {
+                0.0  // Model fails to match - treat as no explanatory power
+            }
+        }
+        
         1.0 - ss_res / ss_tot
     }
 }
