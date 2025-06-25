@@ -37,7 +37,7 @@ fn show_chart() {
                 (15.0,1.0),
                 (20.0,1.0)
             ]
-        )
+        ).unwrap()
         .add_linear_regression_series(
             "regression set",
             [
@@ -52,7 +52,8 @@ fn show_chart() {
                 (15.0,31.0),
                 (20.0,11.0)
             ]
-        ) .build(Size::pixels(600),Size::pixels(400));
+        ).unwrap()
+        .build(Size::pixels(600),Size::pixels(400));
 
     let mut body = chart.render_once().unwrap();
     body.push_str(numeric_chart.render_once().unwrap().as_str());
