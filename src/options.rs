@@ -36,15 +36,13 @@ impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
     pub fn title_str(mut self, text: String) -> Self {
         let mut options = self.options.unwrap_or_default();
         let mut plugins = options.plugins.unwrap_or_default();
-        plugins.push(
-            Plugin::Title(Title{
+        plugins.title = Some(Title{
                 display: true,
                 full_size: false,
                 text: vec![text],
                 padding: None,
                 position: None,
-            })
-        );
+        });
         options.plugins = Some(plugins);
         self.options = Some(options);
         self
@@ -71,12 +69,12 @@ impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
         
         let mut opts = self.options.unwrap_or_default();
         let mut plugins = opts.plugins.unwrap_or_default();
-        plugins.push(Plugin::Legend(Legend{
+        plugins.legend = Some(Legend{
             display: true,
             full_size: false,
             position: None,
             align: None
-        }));
+        });
         opts.plugins = Some(plugins);
         self.options = Some(opts);
         self
@@ -317,7 +315,7 @@ pub struct ChartOptions{
     #[serde(skip_serializing_if = "Option::is_none")]
     scales: Option<ScalingConfig>,
     aspect_ratio: Option<u8>,
-    plugins: Option<Vec<Plugin>>,
+    plugins: Option<Plugins>,
 }
 
 impl Default for ChartOptions{
@@ -385,10 +383,13 @@ pub enum Alignment{
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum Plugin{
-    Title(Title),
-    Legend(Legend)
+#[serde(rename_all = "lowercase")]
+#[derive(Default)]
+struct Plugins{
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<Title>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    legend: Option<Legend>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
