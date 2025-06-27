@@ -47,7 +47,7 @@ fn show_chart() {
     let numeric_chart = ChartConfig::<f64, f64>::default()
         .title_str("Something completely different".to_string())
         .add_linear_regression_series(
-            "regression set2",
+            "set 2",
             vec![
                 (1.0,1.0),
                 (1.0,2.0),
@@ -62,7 +62,7 @@ fn show_chart() {
             ]
         ).unwrap()
         .add_linear_regression_series(
-            "regression set",
+            "set 1",
             [
                 (1.0,11.0),
                 (1.0,20.0),
