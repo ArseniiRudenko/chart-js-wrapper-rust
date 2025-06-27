@@ -7,7 +7,7 @@ mod common;
 
 #[test]
 fn show_chart() {
-    //TODO: doesn't work. Category Y axis fails by default, need to figure out if I need some settings
+    //TODO: Category Y axis works only if explicitly defined as category, bar chart seem to fail with non numeric values
     let chart_y_cat = ChartConfig::<f64, &str>::default()
         .title_str("Something interesting".to_string())
         .add_series(
