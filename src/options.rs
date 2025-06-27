@@ -1,29 +1,26 @@
 use crate::common::{Padding, Rgb, Size};
 use crate::options::ChartData::Vector2D;
 use crate::render::Chart;
+use crate::ChartData::VectorWithRadius;
 use ndarray::{Array1, Array2};
 use ndarray_linalg::error::LinalgError;
 use ndarray_linalg::LeastSquaresSvd;
 use ndarray_linalg::{Lapack, Scalar};
-use num_traits::One;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::ChartData::VectorWithRadius;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ChartConfig<X,Y> {
 
-
     data: ChartDataSection<X,Y>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    options: Option<ChartOptions>
+    
+    options: ChartOptions
 }
 
 impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
 
-    pub fn new(options: Option<ChartOptions>) -> Self {
+    pub fn new(options: ChartOptions) -> Self {
         Self {
             data: ChartDataSection {
                 labels: None,
@@ -33,28 +30,49 @@ impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
         }
     }
 
+    pub fn set_x_axis(mut self, conf: ScaleConfig) -> Self {
+        let mut scales = self.options.scales;
+        if scales.is_none() {
+            scales = Some(ScalingConfig{
+                x: Some(conf),
+                y: None
+            });
+        }else {
+            scales.as_mut().unwrap().x = Some(conf);
+        }
+        self.options.scales = scales;
+        self
+    }
+
+    pub fn set_y_axis(mut self, conf: ScaleConfig) -> Self {
+        let mut scales = self.options.scales;
+        if scales.is_none() {
+            scales = Some(ScalingConfig{
+                x: None,
+                y: Some(conf)
+            });
+        }else {
+            scales.as_mut().unwrap().y = Some(conf);
+        }
+        self.options.scales = scales;
+        self
+    }
+
+
     pub fn title_str(mut self, text: String) -> Self {
-        let mut options = self.options.unwrap_or_default();
-        let mut plugins = options.plugins.unwrap_or_default();
-        plugins.push(
-            Plugin::Title(Title{
+        self.options.plugins.title = Some(Title{
                 display: true,
                 full_size: false,
                 text: vec![text],
                 padding: None,
                 position: None,
-            })
-        );
-        options.plugins = Some(plugins);
-        self.options = Some(options);
+        });
         self
     }
 
 
     pub fn add_series<T: Into<ChartData<X,Y>>>(mut self, r#type: ChartType, title:String, data: T)->Self{
-        let mut chart_data = self.data;
-        let mut datasets = chart_data.datasets;
-        datasets.push(Dataset{
+        self.data.datasets.push(Dataset{
             r#type,
             label: title,
             data: data.into(),
@@ -62,23 +80,21 @@ impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
             border_color: None,
             background_color: None,
         });
-        chart_data.datasets = datasets;
-        self.data = chart_data;
         self
     }
 
+
     pub fn enable_legend(mut self) -> Self{
-        
-        let mut opts = self.options.unwrap_or_default();
-        let mut plugins = opts.plugins.unwrap_or_default();
-        plugins.push(Plugin::Legend(Legend{
-            display: true,
-            full_size: false,
-            position: None,
-            align: None
-        }));
-        opts.plugins = Some(plugins);
-        self.options = Some(opts);
+        if self.options.plugins.legend.is_none() {
+            self.options.plugins.legend = Some(Legend {
+                display: true,
+                full_size: false,
+                position: None,
+                align: None
+            });
+        }else {
+            self.options.plugins.legend.as_mut().unwrap().display = true;
+        }
         self
     }
     
@@ -172,17 +188,48 @@ impl<X> ChartConfig<X, X> where ChartConfig<X, X>:Serialize, X:Scalar + Lapack +
 
 
 
-impl<X,Y> Default for ChartConfig<X,Y>{
+impl<X:WithScaleType, Y:WithScaleType> Default for ChartConfig<X,Y>{
     fn default() -> Self {
         ChartConfig{
             data: ChartDataSection {
                 labels: None,
                 datasets: vec![],
             },
-            options: None,
+            options: ChartOptions{
+                scales: Some(ScalingConfig{
+                    x:Some(ScaleConfig{
+                        r#type: Some(X::scale_type()),
+                        ..ScaleConfig::default()
+                    }),
+                    y:Some(ScaleConfig{
+                        r#type: Some(Y::scale_type()),
+                        ..ScaleConfig::default()
+                    }),
+                }),
+                aspect_ratio: None,
+                plugins: Plugins::default(),
+            },
         }
     }
 }
+
+
+trait WithScaleType{
+    fn scale_type()->ScaleType;
+}
+
+macro_rules! impl_scale_type {
+    ($type:ident for $($t:ty)*) => ($(
+        impl WithScaleType for $t {
+            fn scale_type() -> ScaleType {
+                ScaleType::$type
+            }
+        }
+    )*)
+}
+
+impl_scale_type!(Linear for u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize f32 f64);
+impl_scale_type!(Category for &str String);
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -306,7 +353,11 @@ enum Boundary{
 #[serde(rename_all = "camelCase")]
 struct  Fill {
     target: FillVariant,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     above: Option<Rgb>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     below: Option<Rgb>
 }
 
@@ -316,8 +367,11 @@ struct  Fill {
 pub struct ChartOptions{
     #[serde(skip_serializing_if = "Option::is_none")]
     scales: Option<ScalingConfig>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     aspect_ratio: Option<u8>,
-    plugins: Option<Vec<Plugin>>,
+
+    plugins: Plugins,
 }
 
 impl Default for ChartOptions{
@@ -325,7 +379,7 @@ impl Default for ChartOptions{
         ChartOptions{
             scales: None,
             aspect_ratio: None,
-            plugins: None,
+            plugins: Plugins::default(),
         }
     }
 }
@@ -340,21 +394,27 @@ pub struct ScalingConfig{
     y: Option<ScaleConfig>
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone,Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ScaleConfig{
+
     #[serde(skip_serializing_if = "Option::is_none")]
-    r#type: Option<ScaleType>,
+    pub r#type: Option<ScaleType>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
-    align_to_pixels: Option<bool>,
+    pub align_to_pixels: Option<bool>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
-    reverse: Option<bool>,
+    pub reverse: Option<bool>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
-    max: Option<f64>,
+    pub max: Option<f64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
-    min: Option<f64>,
+    pub min: Option<f64>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<AxisTitle>
+    pub title: Option<AxisTitle>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -385,18 +445,28 @@ pub enum Alignment{
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum Plugin{
-    Title(Title),
-    Legend(Legend)
+#[serde(rename_all = "lowercase")]
+#[derive(Default)]
+struct Plugins{
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<Title>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    subtitle: Option<Title>,
+    
+    #[serde(skip_serializing_if = "Option::is_none")]
+    legend: Option<Legend>
+    
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Legend{
     display: bool,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     position: Option<Position>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     align: Option<Alignment>,
 

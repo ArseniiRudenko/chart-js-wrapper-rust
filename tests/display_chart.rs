@@ -7,7 +7,8 @@ mod common;
 
 #[test]
 fn show_chart() {
-    let chart = ChartConfig::<f64, &str>::default()
+    //TODO: Category Y axis works only if explicitly defined as category, bar chart seem to fail with non numeric values
+    let chart_y_cat = ChartConfig::<f64, &str>::default()
         .title_str("Something interesting".to_string())
         .add_series(
             ChartType::Line,
@@ -21,10 +22,32 @@ fn show_chart() {
         ).enable_legend()
         .build(Size::pixels(600),Size::pixels(400));
 
+
+    //TODO: partially works. mixing chart types seems to fail
+    let chart_x_cat = ChartConfig::<&str,f64>::default()
+        .title_str("Something interesting".to_string())
+        .add_series(
+            ChartType::Line,
+            "first_set".to_string(),
+            vec![("First",12.5),("Second",14.0),("Third",15.0),("Fourth",10.0)] //you can use vectors or arrays
+        )
+        .add_series(
+            ChartType::Bar,
+            "second_set".to_string(),
+            [("First",11.0),("Second",11.0),("Third",20.0),("Fourth",5.0)]
+        )
+        .add_series(
+            ChartType::Line,
+            "third_set".to_string(),
+            [("First",2.0),("Third",14.0),("Fifth",15.0),("First",20.0)]
+        ).enable_legend()
+        .build(Size::pixels(600),Size::pixels(400));
+
+
     let numeric_chart = ChartConfig::<f64, f64>::default()
         .title_str("Something completely different".to_string())
         .add_linear_regression_series(
-            "regression set2",
+            "set 2",
             vec![
                 (1.0,1.0),
                 (1.0,2.0),
@@ -39,7 +62,7 @@ fn show_chart() {
             ]
         ).unwrap()
         .add_linear_regression_series(
-            "regression set",
+            "set 1",
             [
                 (1.0,11.0),
                 (1.0,20.0),
@@ -55,7 +78,10 @@ fn show_chart() {
         ).unwrap()
         .build(Size::pixels(600),Size::pixels(400));
 
-    let mut body = chart.render_once().unwrap();
+
+    let mut body = chart_y_cat.render_once().unwrap();
+    body.push_str(chart_x_cat.render_once().unwrap().as_str());
     body.push_str(numeric_chart.render_once().unwrap().as_str());
+
     show_page(&body);
 }

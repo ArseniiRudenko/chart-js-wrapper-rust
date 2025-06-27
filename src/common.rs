@@ -24,7 +24,7 @@ impl<'de> Deserialize<'de> for Percent {
         let trimmed = s.trim_end_matches('%');
         trimmed.parse::<f32>()
             .map(Percent)
-            .map_err(serde::de::Error::custom)
+            .map_err(de::Error::custom)
     }
 }
 
@@ -48,7 +48,7 @@ impl<'de> Deserialize<'de> for Pixels {
         let trimmed = s.trim_end_matches("px");
         trimmed.parse::<usize>()
             .map(Pixels)
-            .map_err(serde::de::Error::custom)
+            .map_err(de::Error::custom)
     }
 }
 
@@ -87,7 +87,7 @@ impl Size{
 }
 
 #[derive(Debug,Clone, PartialEq)]
-pub struct Rgb(pub u8,pub  u8,pub  u8);
+pub struct Rgb(pub u8,pub u8,pub u8);
 
 impl Serialize for Rgb {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
