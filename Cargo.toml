@@ -1,6 +1,6 @@
 [package]
 name = "chart-js-wrapper-rust"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2024"
 authors = ["Arsenii Rudenko <inbox@arudenko.work>"]
 description = "Wrapper for Chart.js for server-side rendering"
