@@ -1,5 +1,5 @@
 use sailfish::TemplateSimple;
-use chart_js_wrapper_rust::{ChartConfig, ChartType};
+use chart_js_wrapper_rust::{ChartConfig, ChartType, ScaleConfig, ScaleType};
 use chart_js_wrapper_rust::common::Size;
 use crate::common::show_page;
 
@@ -7,9 +7,8 @@ mod common;
 
 #[test]
 fn show_chart() {
-    //TODO: Category Y axis works only if explicitly defined as category, bar chart seem to fail with non numeric values
     let chart_y_cat = ChartConfig::<f64, &str>::default()
-        .title_str("Something interesting".to_string())
+        .title_str("Line and bar".to_string())
         .add_series(
             ChartType::Line,
             "first_set".to_string(),
@@ -20,6 +19,18 @@ fn show_chart() {
             "second_set".to_string(),
             [(2.0,"First"),(14.0,"Third"),(15.0,"Third"),(20.0,"First")]
         ).enable_legend()
+
+        .build(Size::pixels(600),Size::pixels(400));
+
+    let chart_y_cat_bar = ChartConfig::<f64, &str>::default()
+        .title_str("Bar only".to_string())
+        .add_series(
+            ChartType::Bar,
+            "second_set".to_string(),
+            [(2.0,"Second"),(14.0,"Third"),(15.0,"Third"),(20.0,"Second")]
+        ).enable_legend()
+        //so, apparently, category labels for y should be reversed. why, oh why?
+        .set_y_axis(ScaleConfig::new_category(true,vec!["First".to_string(),"Second".to_string(),"Third".to_string(),"Fourth".to_string()]))
         .build(Size::pixels(600),Size::pixels(400));
 
 
@@ -41,6 +52,8 @@ fn show_chart() {
             "third_set".to_string(),
             [("First",2.0),("Third",14.0),("Fifth",15.0),("First",20.0)]
         ).enable_legend()
+        //labels for x-axis should not be reversed, though, those are fine
+        .set_x_axis(ScaleConfig::new_category(false,vec!["First".to_string(),"Second".to_string(),"Third".to_string(),"Fourth".to_string()]))
         .build(Size::pixels(600),Size::pixels(400));
 
 
@@ -80,6 +93,7 @@ fn show_chart() {
 
 
     let mut body = chart_y_cat.render_once().unwrap();
+    body.push_str(chart_y_cat_bar.render_once().unwrap().as_str());
     body.push_str(chart_x_cat.render_once().unwrap().as_str());
     body.push_str(numeric_chart.render_once().unwrap().as_str());
 

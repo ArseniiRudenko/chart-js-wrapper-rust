@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use crate::common::{Padding, Rgb, Size};
 use crate::options::ChartData::Vector2D;
 use crate::render::Chart;
@@ -7,6 +8,7 @@ use ndarray_linalg::error::LinalgError;
 use ndarray_linalg::LeastSquaresSvd;
 use ndarray_linalg::{Lapack, Scalar};
 use serde::{Deserialize, Serialize};
+use serde::ser::SerializeSeq;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -22,10 +24,7 @@ impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
 
     pub fn new(options: ChartOptions) -> Self {
         Self {
-            data: ChartDataSection {
-                labels: None,
-                datasets: vec![],
-            },
+            data: ChartDataSection::default(),
             options
         }
     }
@@ -187,14 +186,18 @@ impl<X> ChartConfig<X, X> where ChartConfig<X, X>:Serialize, X:Scalar + Lapack +
 }
 
 
+impl<X,Y> Default  for ChartDataSection<X,Y>{
+    fn default() -> Self {
+        ChartDataSection {
+            datasets: vec![],
+        }
+    }
+}
 
 impl<X:WithScaleType, Y:WithScaleType> Default for ChartConfig<X,Y>{
     fn default() -> Self {
         ChartConfig{
-            data: ChartDataSection {
-                labels: None,
-                datasets: vec![],
-            },
+            data: ChartDataSection::default(),
             options: ChartOptions{
                 scales: Some(ScalingConfig{
                     x:Some(ScaleConfig{
@@ -203,6 +206,7 @@ impl<X:WithScaleType, Y:WithScaleType> Default for ChartConfig<X,Y>{
                     }),
                     y:Some(ScaleConfig{
                         r#type: Some(Y::scale_type()),
+                        reverse: Y::scale_type() == ScaleType::Category,
                         ..ScaleConfig::default()
                     }),
                 }),
@@ -248,10 +252,6 @@ pub enum ChartType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ChartDataSection<X,Y>{
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    labels: Option<Vec<String>>,
-
     datasets: Vec<Dataset<X,Y>>
 }
 
@@ -304,11 +304,35 @@ impl<const N: usize,X,Y> From<[(X,Y);N]> for ChartData<X,Y> where X:Clone, Y:Clo
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum ChartData<X,Y>{
     Vector2D(Vec<(X,Y)>),
     VectorWithRadius(Vec<DataElement<X,Y>>)
+}
+
+
+impl<X,Y> Serialize for ChartData<X,Y> where X:Serialize, Y:Serialize{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+        match self {
+            Vector2D(v) => {
+                let mut v_ser = serializer.serialize_seq(Some(v.len()))?;
+                for (x,y) in v {
+                    let  point = DataPoint{x,y};
+                    v_ser.serialize_element(&point)?;
+                }
+                v_ser.end()
+            },
+            VectorWithRadius(v) => v.serialize(serializer)
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DataPoint<X,Y>{
+    x: X,
+    y: Y
 }
 
 
@@ -361,6 +385,12 @@ struct  Fill {
     below: Option<Rgb>
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+enum AxisName{
+    X,
+    Y
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -402,10 +432,12 @@ pub struct ScaleConfig{
     pub r#type: Option<ScaleType>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub align_to_pixels: Option<bool>,
+    pub labels: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reverse: Option<bool>,
+    pub align_to_pixels: Option<bool>,
+
+    pub reverse: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max: Option<f64>,
@@ -417,7 +449,20 @@ pub struct ScaleConfig{
     pub title: Option<AxisTitle>
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+impl ScaleConfig{
+
+    pub fn new_category(reverse:bool,values: Vec<String>) -> Self {
+        Self {
+            r#type: Some(ScaleType::Category),
+            labels: Some(values),
+            reverse,
+            ..ScaleConfig::default()
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize, Debug, Clone,PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum ScaleType{
     Linear,
