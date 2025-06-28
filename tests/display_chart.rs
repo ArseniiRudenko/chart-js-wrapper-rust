@@ -1,7 +1,7 @@
-use sailfish::TemplateSimple;
-use chart_js_wrapper_rust::{ChartConfig, ChartType, ScaleConfig, ScaleType};
-use chart_js_wrapper_rust::common::Size;
 use crate::common::show_page;
+use chart_js_wrapper::common::Size;
+use chart_js_wrapper::{ChartConfig, ChartType, ScaleConfig};
+use sailfish::TemplateSimple;
 
 mod common;
 
@@ -30,7 +30,7 @@ fn show_chart() {
             [(2.0,"Second"),(14.0,"Third"),(15.0,"Third"),(20.0,"Second")]
         ).enable_legend()
         //so, apparently, category labels for y should be reversed. why, oh why?
-        .set_y_axis(ScaleConfig::new_category(true,vec!["First".to_string(),"Second".to_string(),"Third".to_string(),"Fourth".to_string()]))
+        .set_y_axis(ScaleConfig::new_category(true,vec!["First","Second","Third","Fourth"]))
         .build(Size::pixels(600),Size::pixels(400));
 
 
@@ -53,7 +53,7 @@ fn show_chart() {
             [("First",2.0),("Third",14.0),("Fifth",15.0),("First",20.0)]
         ).enable_legend()
         //labels for x-axis should not be reversed, though, those are fine
-        .set_x_axis(ScaleConfig::new_category(false,vec!["First".to_string(),"Second".to_string(),"Third".to_string(),"Fourth".to_string()]))
+        .set_x_axis(ScaleConfig::new_category(false,vec!["First","Second","Third","Fourth"]))
         .build(Size::pixels(600),Size::pixels(400));
 
 

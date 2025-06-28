@@ -1,4 +1,5 @@
 use std::cmp::PartialEq;
+use std::time::{Instant, SystemTime};
 use crate::common::{Padding, Rgb, Size};
 use crate::options::ChartData::Vector2D;
 use crate::render::Chart;
@@ -17,19 +18,19 @@ pub struct ChartConfig<X,Y> {
 
     data: ChartDataSection<X,Y>,
     
-    options: ChartOptions
+    options: ChartOptions<X,Y>
 }
 
 impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
 
-    pub fn new(options: ChartOptions) -> Self {
+    pub fn new(options: ChartOptions<X,Y>) -> Self {
         Self {
             data: ChartDataSection::default(),
             options
         }
     }
 
-    pub fn set_x_axis(mut self, conf: ScaleConfig) -> Self {
+    pub fn set_x_axis(mut self, conf: ScaleConfig<X>) -> Self {
         let mut scales = self.options.scales;
         if scales.is_none() {
             scales = Some(ScalingConfig{
@@ -43,7 +44,7 @@ impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
         self
     }
 
-    pub fn set_y_axis(mut self, conf: ScaleConfig) -> Self {
+    pub fn set_y_axis(mut self, conf: ScaleConfig<Y>) -> Self {
         let mut scales = self.options.scales;
         if scales.is_none() {
             scales = Some(ScalingConfig{
@@ -218,10 +219,11 @@ impl<X:WithScaleType, Y:WithScaleType> Default for ChartConfig<X,Y>{
 }
 
 
-trait WithScaleType{
+pub trait WithScaleType{
     fn scale_type()->ScaleType;
 }
 
+#[macro_export]
 macro_rules! impl_scale_type {
     ($type:ident for $($t:ty)*) => ($(
         impl WithScaleType for $t {
@@ -234,7 +236,7 @@ macro_rules! impl_scale_type {
 
 impl_scale_type!(Linear for u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize f32 f64);
 impl_scale_type!(Category for &str String);
-
+impl_scale_type!(Time for SystemTime Instant);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
@@ -394,9 +396,9 @@ enum AxisName{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ChartOptions{
+pub struct ChartOptions<X,Y>{
     #[serde(skip_serializing_if = "Option::is_none")]
-    scales: Option<ScalingConfig>,
+    scales: Option<ScalingConfig<X,Y>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     aspect_ratio: Option<u8>,
@@ -404,7 +406,7 @@ pub struct ChartOptions{
     plugins: Plugins,
 }
 
-impl Default for ChartOptions{
+impl<X,Y> Default for ChartOptions<X,Y>{
     fn default() -> Self {
         ChartOptions{
             scales: None,
@@ -416,23 +418,23 @@ impl Default for ChartOptions{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ScalingConfig{
+pub struct ScalingConfig<X,Y>{
     #[serde(skip_serializing_if = "Option::is_none")]
-    x: Option<ScaleConfig>,
+    x: Option<ScaleConfig<X>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    y: Option<ScaleConfig>
+    y: Option<ScaleConfig<Y>>
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone,Default)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ScaleConfig{
+pub struct ScaleConfig<T>{
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub r#type: Option<ScaleType>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub labels: Option<Vec<String>>,
+    pub labels: Option<Vec<T>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub align_to_pixels: Option<bool>,
@@ -440,30 +442,45 @@ pub struct ScaleConfig{
     pub reverse: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max: Option<f64>,
+    pub max: Option<T>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub min: Option<f64>,
+    pub min: Option<T>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<AxisTitle>
 }
 
-impl ScaleConfig{
 
-    pub fn new_category(reverse:bool,values: Vec<String>) -> Self {
+impl<T> Default for ScaleConfig<T>{
+    fn default() -> Self {
+        ScaleConfig{
+            r#type: None,
+            labels: None,
+            align_to_pixels: None,
+            reverse: false,
+            max: None,
+            min: None,
+            title: None
+        }
+    }
+}
+
+impl<T> ScaleConfig<T>{
+
+    pub fn new_category(reverse:bool,values: Vec<T>) -> Self {
         Self {
             r#type: Some(ScaleType::Category),
             labels: Some(values),
             reverse,
-            ..ScaleConfig::default()
+            ..ScaleConfig::<T>::default()
         }
     }
 }
 
 
 #[derive(Serialize, Deserialize, Debug, Clone,PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "lowercase")]
 pub enum ScaleType{
     Linear,
     Logarithmic,
