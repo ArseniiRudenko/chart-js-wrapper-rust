@@ -5,6 +5,13 @@ pub mod common;
 
 pub use options::*;
 
+#[cfg(feature = "time_axis")]
+pub mod time_axis;
+
+
+#[cfg(feature = "chrono_axis")]
+pub mod chrono_axis;
+
 #[cfg(test)]
 mod tests {
     use super::*;

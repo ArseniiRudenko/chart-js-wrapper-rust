@@ -1,6 +1,7 @@
 [package]
-name = "chart-js-wrapper-rust"
+name = "chart-js-wrapper"
 version = "0.0.4"
+
 edition = "2024"
 authors = ["Arsenii Rudenko <inbox@arudenko.work>"]
 description = "Wrapper for Chart.js for server-side rendering"
@@ -9,15 +10,20 @@ repository = "https://github.com/ArseniiRudenko/chart-js-wrapper-rust"
 readme = "README.md"
 license = "MIT"
 
+[features]
+default = []
+time_axis = ["time"]
+chrono_axis= ["chrono"]
+
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-sailfish = { version = "0.9.0", features = ["derive", "json"] }
-uuid = { version = "1.17.0", features = ["v4"] }
-num-traits = "0.2.19"
+serde_json = "1.0.143"
+sailfish = { version = "0.10.0", features = ["derive", "json"] }
+uuid = { version = "1.18.1", features = ["v4"] }
 ndarray = "0.16"
 ndarray-linalg = { version = "0.17", features = ["openblas"] }
-
+time = { version = "0.3", features = ["serde"] , optional = true }
+chrono = { version = "0.4.42", features = ["serde"], optional = true }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"

@@ -3,7 +3,7 @@ use std::thread;
 use std::time::Duration;
 use sailfish::TemplateSimple;
 use tiny_http::{Header, Server};
-use chart_js_wrapper_rust::render::OnePage;
+use chart_js_wrapper::render::OnePage;
 
 pub fn show_page(body: &str) {
     // Generate your HTML string here
