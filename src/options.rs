@@ -3,7 +3,7 @@ use std::time::{Instant, SystemTime};
 use crate::common::{Padding, Rgb, Size};
 use crate::options::ChartData::Vector2D;
 use crate::render::Chart;
-use crate::ChartData::VectorWithRadius;
+use crate::ChartData::{VectorWithRadius, VectorWithText};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::error::LinalgError;
 use ndarray_linalg::LeastSquaresSvd;
@@ -12,16 +12,20 @@ use serde::{Deserialize, Serialize};
 use serde::ser::SerializeSeq;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ChartConfig<X,Y> {
+const DISPLAY_FN: &'static str = "
+                        function(context){
+                            context = context[0];
+                            let ttp = context.raw.tooltip || '';
+                            if(ttp) return ttp;
+                        }";
 
-    data: ChartDataSection<X,Y>,
-    
-    options: ChartOptions<X,Y>
+#[derive(Debug, Clone)]
+pub struct ChartConfig<X,Y> {
+    pub data: ChartDataSection<X,Y>,
+    pub options: ChartOptions<X,Y>
 }
 
-impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
+impl<X, Y> ChartConfig<X, Y> where X: Serialize, Y: Serialize {
 
     pub fn new(options: ChartOptions<X,Y>) -> Self {
         Self {
@@ -71,15 +75,31 @@ impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
     }
 
 
+
     pub fn add_series<T: Into<ChartData<X,Y>>>(mut self, r#type: ChartType, title:String, data: T)->Self{
-        self.data.datasets.push(Dataset{
-            r#type,
-            label: title,
-            data: data.into(),
-            fill: None,
-            border_color: None,
-            background_color: None,
-        });
+        let data = data.into();
+        if let VectorWithText(d) = data {
+            let ttp =self.options.plugins.tooltip.get_or_insert_default();
+            let callbacks =ttp.callbacks.get_or_insert_default();
+            callbacks.title = Some(JsExpr(DISPLAY_FN));
+            self.data.datasets.push(Dataset {
+                r#type,
+                label: title,
+                data: VectorWithText(d),
+                fill: None,
+                border_color: None,
+                background_color: None,
+            });
+        }else {
+            self.data.datasets.push(Dataset {
+                r#type,
+                label: title,
+                data,
+                fill: None,
+                border_color: None,
+                background_color: None,
+            });
+        }
         self
     }
 
@@ -106,7 +126,7 @@ impl<X, Y> ChartConfig<X, Y> where ChartConfig<X, Y>:Serialize {
 
 
 
-impl<X> ChartConfig<X, X> where ChartConfig<X, X>:Serialize, X:Scalar + Lapack + Clone + Into<f64> {
+impl<X> ChartConfig<X, X> where  X:Serialize + Scalar + Lapack + Clone + Into<f64> {
     
     pub fn add_linear_regression_series<T: Into<ChartData<X,X>>>(self, title: &str, data: T) -> Result<Self, LinalgError> {
         let data:Vec<(X,X)>  = data.into().into();
@@ -278,21 +298,88 @@ pub struct Dataset<X,Y>{
 }
 
 
-impl<X,Y> From<DataElement<X,Y>> for (X,Y){
-    fn from(value: DataElement<X,Y>) -> Self {
+impl<X,Y> From<DataPointWithRadius<X,Y>> for (X, Y){
+    fn from(value: DataPointWithRadius<X,Y>) -> Self {
         (value.x, value.y)
     }
 }
 
+impl<X,Y> From<DataPoint<X,Y>> for (X,Y){
+    fn from(value: DataPoint<X,Y>) -> Self {
+        (value.x, value.y)
+    }
+}
+
+impl<X,Y> From<DataPointWithTooltip<X,Y>> for (X, Y){
+    fn from(value: DataPointWithTooltip<X,Y>) -> Self {
+        (value.x, value.y)
+    }
+}
+
+impl<X,Y> From<DataPointWithTooltip<X,Y>> for (X, Y, String){
+    fn from(value: DataPointWithTooltip<X,Y>) -> Self {
+        (value.x, value.y, value.tooltip)
+    }
+}
+
+
+impl<X,Y> From<(X, Y, String)> for DataPointWithTooltip<X,Y>{
+    fn from(value: (X, Y, String)) -> Self {
+        DataPointWithTooltip{
+            x: value.0,
+            y: value.1,
+            tooltip: value.2
+        }
+    }
+}
+
+impl<X,Y> From<(X, Y, &str)> for DataPointWithTooltip<X,Y>{
+    fn from(value: (X, Y, &str)) -> Self {
+        DataPointWithTooltip{
+            x: value.0,
+            y: value.1,
+            tooltip: value.2.to_string()
+        }
+    }
+}
 
 impl<X,Y> From<ChartData<X,Y>> for Vec<(X,Y)>{
     fn from(value: ChartData<X, Y>) -> Self {
         match value {
             Vector2D(v) => v,
-            VectorWithRadius(val)=> val.into_iter().map(|v| v.into()).collect()
+            VectorWithRadius(val)=> val.into_iter().map(|v| v.into()).collect(),
+            VectorWithText(val)=> val.into_iter().map(|v| v.into()).collect()
         }
     }
 }
+
+impl<X,Y> From<Vec<(X,Y,String)>> for ChartData<X,Y>{
+    fn from(value: Vec<(X, Y, String)>) -> Self {
+        VectorWithText(value.into_iter().map(|v| v.into()).collect())
+    }
+}
+
+impl<const N: usize,X,Y> From<[(X,Y,String);N]> for ChartData<X,Y>{
+    fn from(value: [(X,Y,String);N]) -> Self {
+        VectorWithText(value.into_iter().map(|v| v.into()).collect())
+    }
+}
+
+impl<X,Y> From<Vec<(X,Y,&str)>> for ChartData<X,Y>{
+    fn from(value: Vec<(X, Y,&str)>) -> Self {
+        VectorWithText(value.into_iter().map(|v| v.into()).collect())
+    }
+}
+
+impl<const N: usize,X,Y> From<[(X,Y,&str);N]> for ChartData<X,Y>{
+    fn from(value: [(X,Y,&str);N]) -> Self {
+        VectorWithText(value.into_iter().map(|v| v.into()).collect())
+    }
+}
+
+
+
+
 
 impl<X,Y> From<Vec<(X,Y)>> for ChartData<X,Y>{
     fn from(value: Vec<(X, Y)>) -> Self {
@@ -310,7 +397,8 @@ impl<const N: usize,X,Y> From<[(X,Y);N]> for ChartData<X,Y> where X:Clone, Y:Clo
 #[serde(untagged)]
 pub enum ChartData<X,Y>{
     Vector2D(Vec<(X,Y)>),
-    VectorWithRadius(Vec<DataElement<X,Y>>)
+    VectorWithRadius(Vec<DataPointWithRadius<X,Y>>),
+    VectorWithText(Vec<DataPointWithTooltip<X,Y>>)
 }
 
 
@@ -325,7 +413,8 @@ impl<X,Y> Serialize for ChartData<X,Y> where X:Serialize, Y:Serialize{
                 }
                 v_ser.end()
             },
-            VectorWithRadius(v) => v.serialize(serializer)
+            VectorWithRadius(v) => v.serialize(serializer),
+            VectorWithText(v) => v.serialize(serializer)
         }
     }
 }
@@ -337,10 +426,16 @@ pub struct DataPoint<X,Y>{
     y: Y
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DataPointWithTooltip<X,Y>{
+    x: X,
+    y: Y,
+    tooltip: String
+}
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DataElement<X,Y>{
+pub struct DataPointWithRadius<X,Y>{
     x: X,
     y: Y,
     r: u32
@@ -394,16 +489,11 @@ enum AxisName{
     Y
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct ChartOptions<X,Y>{
-    #[serde(skip_serializing_if = "Option::is_none")]
-    scales: Option<ScalingConfig<X,Y>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    aspect_ratio: Option<u8>,
-
-    plugins: Plugins,
+    pub(crate) scales: Option<ScalingConfig<X,Y>>,
+    pub aspect_ratio: Option<u8>,
+    pub plugins: Plugins,
 }
 
 impl<X,Y> Default for ChartOptions<X,Y>{
@@ -506,19 +596,13 @@ pub enum Alignment{
     End
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone)]
 #[derive(Default)]
-struct Plugins{
-    #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<Title>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    subtitle: Option<Title>,
-    
-    #[serde(skip_serializing_if = "Option::is_none")]
-    legend: Option<Legend>
-    
+pub struct Plugins{
+    pub title: Option<Title>,
+    pub subtitle: Option<Title>,
+    pub legend: Option<Legend>,
+    pub tooltip: Option<Tooltip>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -573,3 +657,61 @@ pub struct Title{
     position: Option<Position>
 
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum TooltipMode{
+    Average,
+    Nearest
+}
+
+
+impl Default for Tooltip {
+    fn default() -> Self {
+        Tooltip{
+            enabled: true,
+            mode: None,
+            background_color: None,
+            title_color: None,
+            callbacks: None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Tooltip{
+    pub enabled: bool,
+    pub mode: Option<TooltipMode>,
+    pub background_color: Option<Rgb>,
+    pub title_color: Option<Rgb>,
+    pub callbacks: Option<TooltipCallbacks>
+}
+
+#[derive(Debug, Clone,Default)]
+pub struct TooltipCallbacks{
+    pub before_title: Option<JsExpr>,
+    pub title: Option<JsExpr>,
+    pub after_title: Option<JsExpr>,
+    pub before_body: Option<JsExpr>,
+    pub before_label: Option<JsExpr>,
+    pub label: Option<JsExpr>,
+    pub label_color: Option<JsExpr>,
+    pub label_text_color: Option<JsExpr>,
+    pub after_label: Option<JsExpr>,
+    pub after_body: Option<JsExpr>,
+    pub before_footer: Option<JsExpr>,
+    pub footer: Option<JsExpr>,
+    pub after_footer: Option<JsExpr>,
+}
+
+
+#[derive(Debug, Clone)]
+pub struct JsExpr(pub &'static str);
+
+impl std::fmt::Display for JsExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Print raw JS, no quotes
+        f.write_str(&self.0)
+    }
+}
+

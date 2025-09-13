@@ -34,7 +34,6 @@ fn show_chart() {
         .build(Size::pixels(600),Size::pixels(400));
 
 
-    //TODO: partially works. mixing chart types seems to fail
     let chart_x_cat = ChartConfig::<&str,f64>::default()
         .title_str("Something interesting".to_string())
         .add_series(
@@ -55,6 +54,7 @@ fn show_chart() {
         //labels for x-axis should not be reversed, though, those are fine
         .set_x_axis(ScaleConfig::new_category(false,vec!["First","Second","Third","Fourth"]))
         .build(Size::pixels(600),Size::pixels(400));
+
 
 
     let numeric_chart = ChartConfig::<f64, f64>::default()
@@ -91,11 +91,35 @@ fn show_chart() {
         ).unwrap()
         .build(Size::pixels(600),Size::pixels(400));
 
+    let chart_with_custom_labels = ChartConfig::<f64, f64>::default()
+    .title_str("Custom labels".to_string())
+    .add_series(
+        ChartType::Line,
+        "first_set".to_string(),
+        vec![(12.5,12.5,"tooltip1"), (14.0,14.0,"tooltip2"), (15.0,15.0,"tooltip3"), (10.0,10.0,"tooltip4") ]
+    )
+        .add_series(
+            ChartType::Line,
+            "second_set".to_string(),
+            vec![
+                (1.0,1.0),
+                (1.0,2.0),
+                (3.5,3.0),
+                (4.0,4.0),
+                (4.1,1.0),
+                (4.1,3.0),
+                (5.0,4.0),
+                (14.0,3.0),
+                (15.0,1.0),
+                (20.0,1.0)
+            ]
+        )    .build(Size::pixels(600),Size::pixels(400));
 
     let mut body = chart_y_cat.render_once().unwrap();
     body.push_str(chart_y_cat_bar.render_once().unwrap().as_str());
     body.push_str(chart_x_cat.render_once().unwrap().as_str());
     body.push_str(numeric_chart.render_once().unwrap().as_str());
+    body.push_str(chart_with_custom_labels.render_once().unwrap().as_str());
 
     show_page(&body);
 }

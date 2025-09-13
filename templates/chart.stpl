@@ -1,7 +1,85 @@
-<div style="width: <%- width  %>;height:<%- height %>;">
+<div style="width: <%- width %>; height: <%- height %>;">
     <canvas id="<%= chart_target_id %>"></canvas>
 </div>
 <script type="text/javascript">
-     var chart_target = document.getElementById("<%= chart_target_id %>");
-     var chart = new Chart(chart_target, <%- options | json %>)
+    var chart_target = document.getElementById("<%= chart_target_id %>");
+    var chart = new Chart(chart_target, {
+        data: <%- options.data | json %>,
+        options: {
+            <% if let Some(sc) = options.options.scales { %>
+            scales: <%- sc | json %>,
+            <% } %>
+            <% if let Some(ar) = options.options.aspect_ratio { %>
+            aspectRatio: <%- ar | json %>,
+            <% } %>
+            plugins: {
+                <% if let Some(ttl) = options.options.plugins.title { %>
+                title: <%- ttl | json %>,
+                <% } %>
+                <% if let Some(sbtl) = options.options.plugins.subtitle { %>
+                subtitle: <%- sbtl | json %>,
+                <% } %>
+                <% if let Some(lgnd) = options.options.plugins.legend { %>
+                legend: <%- lgnd | json %>,
+                <% } %>
+                <% if let Some(tltp) = options.options.plugins.tooltip { %>
+                tooltip: {
+                    enabled: <%- tltp.enabled | json %>,
+                    <% if let Some(ttm) = tltp.mode { %>
+                    mode: <%- ttm | json %>,
+                    <% } %>
+                    <% if let Some(bg) = tltp.background_color { %>
+                    backgroundColor: <%- bg | json %>,
+                    <% } %>
+                    <% if let Some(tc) = tltp.title_color { %>
+                    titleColor: <%- tc | json %>,
+                    <% } %>
+                    <% if let Some(cb) = tltp.callbacks { %>
+                    callbacks: {
+                        <% if let Some(bt) = cb.before_title { %>
+                        beforeTitle: <%- bt | disp %>,
+                        <% } %>
+                        <% if let Some(t) = cb.title { %>
+                        title: <%- t | disp %>,
+                        <% } %>
+                        <% if let Some(at) = cb.after_title { %>
+                        afterTitle: <%- at | disp %>,
+                        <% } %>
+                        <% if let Some(bb) = cb.before_body { %>
+                        beforeBody: <%- bb | disp %>,
+                        <% } %>
+                        <% if let Some(bl) = cb.before_label { %>
+                        beforeLabel: <%- bl | disp %>,
+                        <% } %>
+                        <% if let Some(l) = cb.label { %>
+                        label: <%- l | disp %>,
+                        <% } %>
+                        <% if let Some(lc) = cb.label_color { %>
+                        labelColor: <%- lc | disp %>,
+                        <% } %>
+                        <% if let Some(ltc) = cb.label_text_color { %>
+                        labelTextColor: <%- ltc | disp %>,
+                        <% } %>
+                        <% if let Some(al) = cb.after_label { %>
+                        afterLabel: <%- al | disp %>,
+                        <% } %>
+                        <% if let Some(ab) = cb.after_body { %>
+                        afterBody: <%- ab | disp %>,
+                        <% } %>
+                        <% if let Some(bf) = cb.before_footer { %>
+                        beforeFooter: <%- bf | disp %>,
+                        <% } %>
+                        <% if let Some(f) = cb.footer { %>
+                        footer: <%- f | disp %>,
+                        <% } %>
+                        <% if let Some(af) = cb.after_footer {%>
+                        afterFooter: <%- af | disp %>,
+                        <% } %>
+                    }
+                    <% } %>
+                }
+                <% } %>
+            }
+        }
+    });
 </script>
