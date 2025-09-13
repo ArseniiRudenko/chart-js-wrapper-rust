@@ -22,15 +22,17 @@ impl<'a> OnePage<'a> {
 
 #[derive(TemplateSimple)]
 #[template(path = "chart.stpl")]
+#[template(rm_whitespace = true)]
 pub struct Chart<X,Y>
-where ChartConfig<X,Y>: Serialize {
+where X: Serialize,
+Y: Serialize{
     chart_target_id: String,
     width: Size,
     height: Size,
     options: ChartConfig<X,Y>
 }
 
-impl<X,Y> Chart<X,Y> where ChartConfig<X,Y>: Serialize {
+impl<X,Y> Chart<X,Y> where X: Serialize, Y: Serialize {
     pub fn new(chart_target_id: String, width: Size, height: Size, options: ChartConfig<X,Y>) -> Self {
         Self {
             chart_target_id,
