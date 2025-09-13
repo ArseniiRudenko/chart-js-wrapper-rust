@@ -1,5 +1,4 @@
 use std::cmp::PartialEq;
-use std::time::{Instant, SystemTime};
 use crate::common::{Padding, Rgb, Size};
 use crate::options::ChartData::Vector2D;
 use crate::render::Chart;
@@ -8,7 +7,8 @@ use ndarray::{Array1, Array2};
 use ndarray_linalg::error::LinalgError;
 use ndarray_linalg::LeastSquaresSvd;
 use ndarray_linalg::{Lapack, Scalar};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::Serialize;
+use serde::Deserialize;
 use serde::ser::SerializeSeq;
 use uuid::Uuid;
 use crate::serde::{ValueSerializeWrapper, WithTypeAndSerializer};
@@ -21,13 +21,14 @@ const DISPLAY_FN: &'static str = "
                         }";
 
 #[derive(Debug, Clone)]
-pub struct ChartConfig<X,Y>
-where X:WithTypeAndSerializer, Y:WithTypeAndSerializer {
+pub struct ChartConfig<X:WithTypeAndSerializer+Serialize,Y:WithTypeAndSerializer+Serialize>
+{
     pub data: ChartDataSection<X,Y>,
     pub options: ChartOptions<X,Y>
 }
 
-impl<X, Y> ChartConfig<X, Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
+impl<X, Y> ChartConfig<X, Y>
+where X:WithTypeAndSerializer+Serialize, Y:WithTypeAndSerializer+Serialize{
 
     pub fn new(options: ChartOptions<X,Y>) -> Self {
         Self {
@@ -126,9 +127,7 @@ impl<X, Y> ChartConfig<X, Y> where X:WithTypeAndSerializer, Y:WithTypeAndSeriali
     pub fn build(self, width: Size, height: Size) -> Chart<X,Y>{
         Chart::new(Uuid::new_v4().to_string(), width, height, self)
     }
-    
 }
-
 
 
 impl<X> ChartConfig<X, X> where  X:WithTypeAndSerializer + Scalar + Lapack + Clone + Into<f64> {
@@ -220,7 +219,7 @@ impl<X,Y> Default  for ChartDataSection<X,Y> where X:WithTypeAndSerializer, Y:Wi
     }
 }
 
-impl<X: WithTypeAndSerializer, Y: WithTypeAndSerializer> Default for ChartConfig<X,Y> where ChartDataSection<X,Y>:Serialize{
+impl<X: WithTypeAndSerializer+Serialize, Y: WithTypeAndSerializer+Serialize> Default for ChartConfig<X,Y> {
     fn default() -> Self {
         ChartConfig{
             data: ChartDataSection::default(),
@@ -242,10 +241,6 @@ impl<X: WithTypeAndSerializer, Y: WithTypeAndSerializer> Default for ChartConfig
         }
     }
 }
-
-
-
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
@@ -284,31 +279,6 @@ pub struct Dataset<X:WithTypeAndSerializer,Y:WithTypeAndSerializer>{
 
     #[serde(skip_serializing_if = "Option::is_none")]
     background_color: Option<Rgb>
-}
-
-
-impl<X,Y> From<DataPointWithRadius<X,Y>> for (X, Y){
-    fn from(value: DataPointWithRadius<X,Y>) -> Self {
-        (value.x, value.y)
-    }
-}
-
-impl<X,Y> From<DataPoint<X,Y>> for (X,Y){
-    fn from(value: DataPoint<X,Y>) -> Self {
-        (value.x, value.y)
-    }
-}
-
-impl<X,Y> From<DataPointWithTooltip<X,Y>> for (X, Y){
-    fn from(value: DataPointWithTooltip<X,Y>) -> Self {
-        (value.x, value.y)
-    }
-}
-
-impl<X,Y> From<DataPointWithTooltip<X,Y>> for (X, Y, String){
-    fn from(value: DataPointWithTooltip<X,Y>) -> Self {
-        (value.x, value.y, value.tooltip)
-    }
 }
 
 

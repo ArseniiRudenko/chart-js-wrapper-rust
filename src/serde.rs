@@ -3,7 +3,7 @@ use serde::{Serialize, Serializer};
 use crate::ScaleType;
 
 #[derive(Debug,Clone)]
-pub(crate) struct ValueSerializeWrapper<T: WithTypeAndSerializer>(pub(crate) T);
+pub struct ValueSerializeWrapper<T: WithTypeAndSerializer>(pub(crate) T);
 
 impl <T: WithTypeAndSerializer> From<T> for ValueSerializeWrapper<T> {
     fn from(value: T) -> Self {
@@ -74,6 +74,8 @@ macro_rules! impl_scale_type {
         }
     )*)
 }
+
+
 
 
 
