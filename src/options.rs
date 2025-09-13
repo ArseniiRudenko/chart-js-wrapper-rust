@@ -74,7 +74,10 @@ impl<X, Y> ChartConfig<X, Y> where X: Serialize, Y: Serialize {
         self
     }
 
-
+    pub fn with_aspect_ratio(mut self, ratio: f32) -> Self {
+        self.options.aspect_ratio = Some(ratio);
+        self
+    }
 
     pub fn add_series<T: Into<ChartData<X,Y>>>(mut self, r#type: ChartType, title:String, data: T)->Self{
         let data = data.into();
@@ -492,7 +495,7 @@ enum AxisName{
 #[derive(Debug, Clone)]
 pub struct ChartOptions<X,Y>{
     pub(crate) scales: Option<ScalingConfig<X,Y>>,
-    pub aspect_ratio: Option<u8>,
+    pub aspect_ratio: Option<f32>,
     pub plugins: Plugins,
 }
 
