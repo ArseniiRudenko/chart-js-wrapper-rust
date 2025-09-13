@@ -623,6 +623,32 @@ pub struct AxisTitle{
     align: Alignment,
 }
 
+impl AxisTitle{
+    pub fn new(text: String) -> Self {
+        Self{
+            display: true,
+            text,
+            align: Alignment::Center
+        }
+    }
+
+    pub fn with_display(mut self, display: bool) -> Self {
+        self.display = display;
+        self
+    }
+
+    pub fn with_text(mut self, text: String) -> Self {
+        self.text = text;
+        self
+    }
+
+    pub fn with_align(mut self, align: Alignment) -> Self {
+        self.align = align;
+        self
+    }
+
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum Alignment{
