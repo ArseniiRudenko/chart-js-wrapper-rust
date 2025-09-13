@@ -587,6 +587,11 @@ impl<T> ScaleConfig<T>{
         self
     }
 
+    pub fn with_str_title(mut self, title: &str) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
     pub fn with_title(mut self, title: AxisTitle) -> Self {
         self.title = Some(title);
         self
