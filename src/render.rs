@@ -1,7 +1,7 @@
 use sailfish::TemplateSimple;
-use serde::Serialize;
 use crate::common::Size;
 use crate::options::ChartConfig;
+use crate::serde::WithTypeAndSerializer;
 
 #[derive(TemplateSimple)]
 #[template(path = "one_page_chart.stpl")]
@@ -24,15 +24,14 @@ impl<'a> OnePage<'a> {
 #[template(path = "chart.stpl")]
 #[template(rm_whitespace = true)]
 pub struct Chart<X,Y>
-where X: Serialize,
-Y: Serialize{
+where X: WithTypeAndSerializer, Y: WithTypeAndSerializer{
     chart_target_id: String,
     width: Size,
     height: Size,
     options: ChartConfig<X,Y>
 }
 
-impl<X,Y> Chart<X,Y> where X: Serialize, Y: Serialize {
+impl<X,Y> Chart<X,Y> where X: WithTypeAndSerializer, Y: WithTypeAndSerializer{
     pub fn new(chart_target_id: String, width: Size, height: Size, options: ChartConfig<X,Y>) -> Self {
         Self {
             chart_target_id,
