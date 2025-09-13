@@ -29,3 +29,5 @@ chrono = { version = "0.4.42", features = ["serde"], optional = true }
 pretty_assertions = "1.4.1"
 tiny_http = "0.12"
 open = "5.0"
+time = { version = "0.3", features = ["serde","macros","formatting"]}
+chrono = "0.4.41"

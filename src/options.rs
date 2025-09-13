@@ -1,5 +1,4 @@
 use std::cmp::PartialEq;
-use std::time::{Instant, SystemTime};
 use crate::common::{Padding, Rgb, Size};
 use crate::options::ChartData::Vector2D;
 use crate::render::Chart;
@@ -8,9 +7,11 @@ use ndarray::{Array1, Array2};
 use ndarray_linalg::error::LinalgError;
 use ndarray_linalg::LeastSquaresSvd;
 use ndarray_linalg::{Lapack, Scalar};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use serde::Deserialize;
 use serde::ser::SerializeSeq;
 use uuid::Uuid;
+use crate::serde::{ValueSerializeWrapper, WithTypeAndSerializer};
 
 const DISPLAY_FN: &'static str = "
                         function(context){
@@ -20,12 +21,14 @@ const DISPLAY_FN: &'static str = "
                         }";
 
 #[derive(Debug, Clone)]
-pub struct ChartConfig<X,Y> {
+pub struct ChartConfig<X:WithTypeAndSerializer+Serialize,Y:WithTypeAndSerializer+Serialize>
+{
     pub data: ChartDataSection<X,Y>,
     pub options: ChartOptions<X,Y>
 }
 
-impl<X, Y> ChartConfig<X, Y> where X: Serialize, Y: Serialize {
+impl<X, Y> ChartConfig<X, Y>
+where X:WithTypeAndSerializer+Serialize, Y:WithTypeAndSerializer+Serialize{
 
     pub fn new(options: ChartOptions<X,Y>) -> Self {
         Self {
@@ -124,12 +127,10 @@ impl<X, Y> ChartConfig<X, Y> where X: Serialize, Y: Serialize {
     pub fn build(self, width: Size, height: Size) -> Chart<X,Y>{
         Chart::new(Uuid::new_v4().to_string(), width, height, self)
     }
-    
 }
 
 
-
-impl<X> ChartConfig<X, X> where  X:Serialize + Scalar + Lapack + Clone + Into<f64> {
+impl<X> ChartConfig<X, X> where  X:WithTypeAndSerializer + Scalar + Lapack + Clone + Into<f64> {
     
     pub fn add_linear_regression_series<T: Into<ChartData<X,X>>>(self, title: &str, data: T) -> Result<Self, LinalgError> {
         let data:Vec<(X,X)>  = data.into().into();
@@ -210,7 +211,7 @@ impl<X> ChartConfig<X, X> where  X:Serialize + Scalar + Lapack + Clone + Into<f6
 }
 
 
-impl<X,Y> Default  for ChartDataSection<X,Y>{
+impl<X,Y> Default  for ChartDataSection<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     fn default() -> Self {
         ChartDataSection {
             datasets: vec![],
@@ -218,7 +219,7 @@ impl<X,Y> Default  for ChartDataSection<X,Y>{
     }
 }
 
-impl<X:WithScaleType, Y:WithScaleType> Default for ChartConfig<X,Y>{
+impl<X: WithTypeAndSerializer+Serialize, Y: WithTypeAndSerializer+Serialize> Default for ChartConfig<X,Y> {
     fn default() -> Self {
         ChartConfig{
             data: ChartDataSection::default(),
@@ -241,26 +242,6 @@ impl<X:WithScaleType, Y:WithScaleType> Default for ChartConfig<X,Y>{
     }
 }
 
-
-pub trait WithScaleType{
-    fn scale_type()->ScaleType;
-}
-
-#[macro_export]
-macro_rules! impl_scale_type {
-    ($type:ident for $($t:ty)*) => ($(
-        impl WithScaleType for $t {
-            fn scale_type() -> ScaleType {
-                ScaleType::$type
-            }
-        }
-    )*)
-}
-
-impl_scale_type!(Linear for u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize f32 f64);
-impl_scale_type!(Category for &str String);
-impl_scale_type!(Time for SystemTime Instant);
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum ChartType {
@@ -274,15 +255,15 @@ pub enum ChartType {
     Scatter
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ChartDataSection<X,Y>{
+pub struct ChartDataSection<X:WithTypeAndSerializer,Y:WithTypeAndSerializer>{
     datasets: Vec<Dataset<X,Y>>
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct Dataset<X,Y>{
+pub struct Dataset<X:WithTypeAndSerializer,Y:WithTypeAndSerializer>{
 
     r#type: ChartType,
 
@@ -298,31 +279,6 @@ pub struct Dataset<X,Y>{
 
     #[serde(skip_serializing_if = "Option::is_none")]
     background_color: Option<Rgb>
-}
-
-
-impl<X,Y> From<DataPointWithRadius<X,Y>> for (X, Y){
-    fn from(value: DataPointWithRadius<X,Y>) -> Self {
-        (value.x, value.y)
-    }
-}
-
-impl<X,Y> From<DataPoint<X,Y>> for (X,Y){
-    fn from(value: DataPoint<X,Y>) -> Self {
-        (value.x, value.y)
-    }
-}
-
-impl<X,Y> From<DataPointWithTooltip<X,Y>> for (X, Y){
-    fn from(value: DataPointWithTooltip<X,Y>) -> Self {
-        (value.x, value.y)
-    }
-}
-
-impl<X,Y> From<DataPointWithTooltip<X,Y>> for (X, Y, String){
-    fn from(value: DataPointWithTooltip<X,Y>) -> Self {
-        (value.x, value.y, value.tooltip)
-    }
 }
 
 
@@ -346,66 +302,63 @@ impl<X,Y> From<(X, Y, &str)> for DataPointWithTooltip<X,Y>{
     }
 }
 
-impl<X,Y> From<ChartData<X,Y>> for Vec<(X,Y)>{
+impl<X:WithTypeAndSerializer,Y:WithTypeAndSerializer> From<ChartData<X,Y>> for Vec<(X,Y)>{
     fn from(value: ChartData<X, Y>) -> Self {
         match value {
-            Vector2D(v) => v,
-            VectorWithRadius(val)=> val.into_iter().map(|v| v.into()).collect(),
-            VectorWithText(val)=> val.into_iter().map(|v| v.into()).collect()
+            Vector2D(v) => v.into_iter().map(|v| (v.0.0,v.1.0)).collect(),
+            VectorWithRadius(val)=> val.into_iter().map(|v| (v.x.0,v.y.0)).collect(),
+            VectorWithText(val)=> val.into_iter().map(|v|  (v.x.0,v.y.0)).collect()
         }
     }
 }
 
-impl<X,Y> From<Vec<(X,Y,String)>> for ChartData<X,Y>{
+impl<X,Y> From<Vec<(X,Y,String)>> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     fn from(value: Vec<(X, Y, String)>) -> Self {
-        VectorWithText(value.into_iter().map(|v| v.into()).collect())
+        VectorWithText(value.into_iter().map(|v| (v.0.into(),v.1.into(),v.2).into()).collect())
     }
 }
 
-impl<const N: usize,X,Y> From<[(X,Y,String);N]> for ChartData<X,Y>{
+impl<const N: usize,X,Y> From<[(X,Y,String);N]> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     fn from(value: [(X,Y,String);N]) -> Self {
-        VectorWithText(value.into_iter().map(|v| v.into()).collect())
+        VectorWithText(value.into_iter().map(|v| (v.0.into(),v.1.into(),v.2).into()).collect())
     }
 }
 
-impl<X,Y> From<Vec<(X,Y,&str)>> for ChartData<X,Y>{
+impl<X,Y> From<Vec<(X,Y,&str)>> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     fn from(value: Vec<(X, Y,&str)>) -> Self {
-        VectorWithText(value.into_iter().map(|v| v.into()).collect())
+        VectorWithText(value.into_iter().map(|v|(v.0.into(),v.1.into(),v.2).into()).collect())
     }
 }
 
-impl<const N: usize,X,Y> From<[(X,Y,&str);N]> for ChartData<X,Y>{
+impl<const N: usize,X,Y> From<[(X,Y,&str);N]> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     fn from(value: [(X,Y,&str);N]) -> Self {
-        VectorWithText(value.into_iter().map(|v| v.into()).collect())
+        VectorWithText(value.into_iter().map(|v|(v.0.into(),v.1.into(),v.2).into()).collect())
     }
 }
 
 
 
-
-
-impl<X,Y> From<Vec<(X,Y)>> for ChartData<X,Y>{
+impl<X,Y> From<Vec<(X,Y)>> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     fn from(value: Vec<(X, Y)>) -> Self {
-       Vector2D(value)
+       Vector2D(value.into_iter().map(|v|(v.0.into(),v.1.into())).collect())
     }
 }
 
-impl<const N: usize,X,Y> From<[(X,Y);N]> for ChartData<X,Y> where X:Clone, Y:Clone {
+impl<const N: usize,X,Y> From<[(X,Y);N]> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer {
     fn from(value: [(X,Y);N]) -> Self {
-        Vector2D(value.to_vec())
+        Vector2D(value.into_iter().map(|v|(v.0.into(),v.1.into())).collect())
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum ChartData<X,Y>{
-    Vector2D(Vec<(X,Y)>),
-    VectorWithRadius(Vec<DataPointWithRadius<X,Y>>),
-    VectorWithText(Vec<DataPointWithTooltip<X,Y>>)
+#[derive(Debug, Clone)]
+pub enum ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
+    Vector2D(Vec<(ValueSerializeWrapper<X>,ValueSerializeWrapper<Y>)>),
+    VectorWithRadius(Vec<DataPointWithRadius<ValueSerializeWrapper<X>,ValueSerializeWrapper<Y>>>),
+    VectorWithText(Vec<DataPointWithTooltip<ValueSerializeWrapper<X>,ValueSerializeWrapper<Y>>>)
 }
 
 
-impl<X,Y> Serialize for ChartData<X,Y> where X:Serialize, Y:Serialize{
+impl<X,Y> Serialize for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
         match self {
             Vector2D(v) => {
@@ -493,13 +446,13 @@ enum AxisName{
 }
 
 #[derive(Debug, Clone)]
-pub struct ChartOptions<X,Y>{
+pub struct ChartOptions<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     pub(crate) scales: Option<ScalingConfig<X,Y>>,
-    pub aspect_ratio: Option<f32>,
+    pub(crate) aspect_ratio: Option<f32>,
     pub plugins: Plugins,
 }
 
-impl<X,Y> Default for ChartOptions<X,Y>{
+impl<X,Y> Default for ChartOptions<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     fn default() -> Self {
         ChartOptions{
             scales: None,
@@ -509,9 +462,9 @@ impl<X,Y> Default for ChartOptions<X,Y>{
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ScalingConfig<X,Y>{
+pub struct ScalingConfig<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     #[serde(skip_serializing_if = "Option::is_none")]
     x: Option<ScaleConfig<X>>,
 
@@ -519,15 +472,15 @@ pub struct ScalingConfig<X,Y>{
     y: Option<ScaleConfig<Y>>
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ScaleConfig<T>{
+pub struct ScaleConfig<T> where T:WithTypeAndSerializer{
 
     #[serde(skip_serializing_if = "Option::is_none")]
     r#type: Option<ScaleType>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    labels: Option<Vec<T>>,
+    labels: Option<Vec<ValueSerializeWrapper<T>>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     align_to_pixels: Option<bool>,
@@ -535,17 +488,17 @@ pub struct ScaleConfig<T>{
     reverse: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    max: Option<T>,
+    max: Option<ValueSerializeWrapper<T>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    min: Option<T>,
+    min: Option<ValueSerializeWrapper<T>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<AxisTitle>
 }
 
 
-impl<T> Default for ScaleConfig<T>{
+impl<T> Default for ScaleConfig<T> where T:WithTypeAndSerializer{
     fn default() -> Self {
         ScaleConfig{
             r#type: None,
@@ -559,12 +512,12 @@ impl<T> Default for ScaleConfig<T>{
     }
 }
 
-impl<T> ScaleConfig<T>{
+impl<T> ScaleConfig<T> where T:WithTypeAndSerializer{
 
     pub fn new_category(reverse:bool,values: Vec<T>) -> Self {
         Self {
             r#type: Some(ScaleType::Category),
-            labels: Some(values),
+            labels: Some(values.into_iter().map(|v| v.into()).collect()),
             reverse,
             ..ScaleConfig::<T>::default()
         }
@@ -581,12 +534,12 @@ impl<T> ScaleConfig<T>{
     }
 
     pub fn with_max(mut self, max: T) -> Self {
-        self.max = Some(max);
+        self.max = Some(max.into());
         self
     }
 
     pub fn with_min(mut self, min: T) -> Self {
-        self.min = Some(min);
+        self.min = Some(min.into());
         self
     }
 
@@ -601,7 +554,7 @@ impl<T> ScaleConfig<T>{
     }
 
     pub fn with_labels(mut self, labels: Vec<T>) -> Self {
-        self.labels = Some(labels);
+        self.labels = Some(labels.into_iter().map(|v| v.into()).collect());
         self
     }
 
