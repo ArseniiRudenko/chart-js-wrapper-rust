@@ -79,8 +79,8 @@ impl<X, Y> ChartConfig<X, Y> where X: Serialize, Y: Serialize {
     pub fn add_series<T: Into<ChartData<X,Y>>>(mut self, r#type: ChartType, title:String, data: T)->Self{
         let data = data.into();
         if let VectorWithText(d) = data {
-            let ttp =self.options.plugins.tooltip.get_or_insert_default();
-            let callbacks =ttp.callbacks.get_or_insert_default();
+            let ttp = self.options.plugins.tooltip.get_or_insert_default();
+            let callbacks = ttp.callbacks.get_or_insert_default();
             callbacks.title = Some(JsExpr(DISPLAY_FN));
             self.data.datasets.push(Dataset {
                 r#type,
@@ -521,24 +521,24 @@ pub struct ScalingConfig<X,Y>{
 pub struct ScaleConfig<T>{
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub r#type: Option<ScaleType>,
+    r#type: Option<ScaleType>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub labels: Option<Vec<T>>,
+    labels: Option<Vec<T>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub align_to_pixels: Option<bool>,
+    align_to_pixels: Option<bool>,
 
-    pub reverse: bool,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max: Option<T>,
+    reverse: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub min: Option<T>,
+    max: Option<T>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub title: Option<AxisTitle>
+    min: Option<T>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<AxisTitle>
 }
 
 
@@ -566,8 +566,43 @@ impl<T> ScaleConfig<T>{
             ..ScaleConfig::<T>::default()
         }
     }
-}
 
+    pub fn with_type(mut self, r#type: ScaleType) -> Self {
+        self.r#type = Some(r#type);
+        self
+    }
+
+    pub fn with_align_to_pixels(mut self, align_to_pixels: bool) -> Self {
+        self.align_to_pixels = Some(align_to_pixels);
+        self
+    }
+
+    pub fn with_max(mut self, max: T) -> Self {
+        self.max = Some(max);
+        self
+    }
+
+    pub fn with_min(mut self, min: T) -> Self {
+        self.min = Some(min);
+        self
+    }
+
+    pub fn with_title(mut self, title: AxisTitle) -> Self {
+        self.title = Some(title);
+        self
+    }
+
+    pub fn with_labels(mut self, labels: Vec<T>) -> Self {
+        self.labels = Some(labels);
+        self
+    }
+
+    pub fn with_reverse(mut self, reverse: bool) -> Self {
+        self.reverse = reverse;
+        self
+    }
+
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone,PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -619,9 +654,53 @@ pub struct Legend{
     pub full_size: bool,
 }
 
+
+impl Default for Legend{
+    fn default() -> Self {
+        Legend{
+            display: true,
+            position: None,
+            align: None,
+            full_size: false
+        }
+    }
+}
+
+impl Legend {
+    pub fn new_position(position: Position) -> Self {
+        Self {
+            display: true,
+            position: Some(position),
+            align: None,
+            full_size: false
+        }
+    }
+
+    pub fn  with_align(mut self, align: Alignment) -> Self {
+        self.align = Some(align);
+        self
+    }
+
+    pub fn  with_full_size(mut self, full_size: bool) -> Self {
+        self.full_size = full_size;
+        self
+    }
+
+    pub fn  with_display(mut self, display: bool) -> Self {
+        self.display = display;
+        self
+    }
+
+    pub fn  with_position(mut self, position: Position) -> Self {
+        self.position = Some(position);
+        self
+    }
+
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
-enum Position{
+pub enum Position{
     Top,
     Left,
     Bottom,
@@ -630,7 +709,7 @@ enum Position{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
-enum Align{
+pub enum Align{
     Start,
     Center,
     End
@@ -657,6 +736,7 @@ pub struct Title{
     position: Option<Position>
 
 }
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
