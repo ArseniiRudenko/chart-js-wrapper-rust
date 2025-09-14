@@ -7,7 +7,6 @@ use ndarray_linalg::LeastSquaresSvd;
 use ndarray_linalg::{Lapack, Scalar};
 use serde::Serialize;
 use serde::Deserialize;
-use serde::ser::SerializeSeq;
 use uuid::Uuid;
 use crate::data::ChartData;
 use crate::serde::{ValueSerializeWrapper, WithTypeAndSerializer};
@@ -545,10 +544,10 @@ enum AxisName{
 
 #[derive(Debug, Clone)]
 pub struct ChartOptions<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
-    pub(crate) scales: Option<ScalingConfig<X,Y>>,
-    pub(crate) aspect_ratio: Option<f32>,
-    pub elements: Option<ElementsConfig>,
-    pub plugins: Plugins,
+    scales: Option<ScalingConfig<X,Y>>,
+    aspect_ratio: Option<f32>,
+    elements: Option<ElementsConfig>,
+    plugins: Plugins,
 }
 
 impl<X,Y> Default for ChartOptions<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
@@ -733,10 +732,10 @@ pub enum Alignment{
 
 #[derive(Debug, Clone)]
 pub struct Plugins{
-    pub title: Option<Title>,
-    pub subtitle: Option<Title>,
-    pub legend: Option<Legend>,
-    pub tooltip: Option<Tooltip>
+    title: Option<Title>,
+    subtitle: Option<Title>,
+    legend: Option<Legend>,
+    tooltip: Option<Tooltip>
 }
 
 impl Default for Plugins{
