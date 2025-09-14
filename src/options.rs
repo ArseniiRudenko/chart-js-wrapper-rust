@@ -1,8 +1,6 @@
 use std::cmp::PartialEq;
 use crate::common::{Padding, Rgb, Size};
-use crate::options::ChartData::Vector2D;
 use crate::render::Chart;
-use crate::ChartData::{VectorWithRadius, VectorWithText};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::error::LinalgError;
 use ndarray_linalg::LeastSquaresSvd;
@@ -11,6 +9,7 @@ use serde::Serialize;
 use serde::Deserialize;
 use serde::ser::SerializeSeq;
 use uuid::Uuid;
+use crate::data::ChartData;
 use crate::serde::{ValueSerializeWrapper, WithTypeAndSerializer};
 
 const DISPLAY_FN: &'static str = "
@@ -66,6 +65,11 @@ where X:WithTypeAndSerializer+Serialize, Y:WithTypeAndSerializer+Serialize{
     }
 
 
+    pub fn with_elements(mut self, elements: ElementsConfig) -> Self {
+        self.options.elements = Some(elements);
+        self
+    }
+
     pub fn title_str(mut self, text: String) -> Self {
         self.options.plugins.title = Some(Title{
                 display: true,
@@ -82,45 +86,34 @@ where X:WithTypeAndSerializer+Serialize, Y:WithTypeAndSerializer+Serialize{
         self
     }
 
-    pub fn add_series<T: Into<ChartData<X,Y>>>(mut self, r#type: ChartType, title:String, data: T)->Self{
-        let data = data.into();
-        if let VectorWithText(d) = data {
-            let ttp = self.options.plugins.tooltip.get_or_insert_default();
-            let callbacks = ttp.callbacks.get_or_insert_default();
-            callbacks.title = Some(JsExpr(DISPLAY_FN));
-            self.data.datasets.push(Dataset {
-                r#type,
-                label: title,
-                data: VectorWithText(d),
-                fill: None,
-                border_color: None,
-                background_color: None,
-            });
-        }else {
-            self.data.datasets.push(Dataset {
-                r#type,
-                label: title,
-                data,
-                fill: None,
-                border_color: None,
-                background_color: None,
-            });
-        }
+    pub fn add_series_direct(mut self, series:Dataset<X,Y>) -> Self{
+        self.data.datasets.push(series);
         self
     }
 
+    pub fn add_series_with_config<T: Into<ChartData<X,Y>>>(mut self, r#type: ChartType, title:String, config:ElementsConfig, data: T)->Self{
+        self.data.datasets.push(Dataset {
+            r#type,
+            label: title,
+            data: data.into(),
+            elements: Some(config)
+        });
+        self
+    }
+
+    pub fn add_series<T: Into<ChartData<X,Y>>>(mut self, r#type: ChartType, title:String, data: T)->Self{
+        self.data.datasets.push(Dataset {
+            r#type,
+            label: title,
+            data: data.into(),
+            elements: None
+        });
+        self
+    }
 
     pub fn enable_legend(mut self) -> Self{
-        if self.options.plugins.legend.is_none() {
-            self.options.plugins.legend = Some(Legend {
-                display: true,
-                full_size: false,
-                position: None,
-                align: None
-            });
-        }else {
-            self.options.plugins.legend.as_mut().unwrap().display = true;
-        }
+        let legend = self.options.plugins.legend.get_or_insert_default();
+        legend.display = true;
         self
     }
     
@@ -236,6 +229,7 @@ impl<X: WithTypeAndSerializer+Serialize, Y: WithTypeAndSerializer+Serialize> Def
                     }),
                 }),
                 aspect_ratio: None,
+                elements: None,
                 plugins: Plugins::default(),
             },
         }
@@ -272,134 +266,206 @@ pub struct Dataset<X:WithTypeAndSerializer,Y:WithTypeAndSerializer>{
     data: ChartData<X,Y>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    elements: Option<ElementsConfig>
+}
+
+#[derive(Serialize, Debug, Clone,Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ElementsConfig{
+    #[serde(skip_serializing_if = "Option::is_none")]
+    line:  Option<LineConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    point: Option<PointConfig>
+
+}
+
+impl ElementsConfig {
+
+    pub fn with_line_config(mut self, conf: LineConfig) -> Self{
+        self.line = Some(conf);
+        self
+    }
+
+    pub fn with_point_config(mut self, conf: PointConfig) -> Self{
+        self.point = Some(conf);
+        self
+    }
+
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum CubicInterpolationMode{
+    Default,
+    Monotone
+}
+
+#[derive(Serialize, Debug, Clone,Default)]
+pub struct LineConfig {
+    ///how much bezier rounding to use, default is 0 - no bezier
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tension: Option<f32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cubic_interpolation_mode: Option<CubicInterpolationMode>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     fill: Option<Fill>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     border_color: Option<Rgb>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    background_color: Option<Rgb>
+    background_color: Option<Rgb>,
+
+    stepped: bool
+
+}
+
+impl LineConfig {
+
+    pub fn with_tension(mut self, tension: f32) -> Self{
+        self.tension = Some(tension);
+        self.stepped = false;
+        self
+    }
+
+    pub fn with_stepped(mut self, stepped: bool) -> Self{
+        self.stepped = stepped;
+        self.tension = None;
+        self
+    }
+
+    pub fn with_cubic_interpolation_mode(mut self, mode: CubicInterpolationMode) -> Self{
+        self.cubic_interpolation_mode = Some(mode);
+        self
+    }
+
+    pub fn with_fill(mut self, fill: Fill) -> Self{
+        self.fill = Some(fill);
+        self
+    }
+
+    pub fn with_border_color(mut self, color: Rgb) -> Self{
+        self.border_color = Some(color);
+        self
+    }
+
+    pub fn with_background_color(mut self, color: Rgb) -> Self{
+        self.background_color = Some(color);
+        self
+    }
 }
 
 
-impl<X,Y> From<(X, Y, String)> for DataPointWithTooltip<X,Y>{
-    fn from(value: (X, Y, String)) -> Self {
-        DataPointWithTooltip{
-            x: value.0,
-            y: value.1,
-            tooltip: value.2
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PointConfig{
+
+    radius: f32,
+
+    point_style: PointStyle,
+
+    ///point rotation in degrees
+    rotation: f32,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    border_color: Option<Rgb>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    background_color: Option<Rgb>,
+
+    border_width: u16,
+
+    hover_radius: u16,
+
+    hit_radius: u16,
+
+    hover_border_width: u16
+
+}
+
+impl Default for PointConfig {
+    fn default() -> Self {
+        PointConfig{
+            radius: 3.0,
+            point_style: PointStyle::Circle,
+            rotation: 0.0,
+            border_color: None,
+            background_color: None,
+            border_width: 1,
+            hover_radius: 4,
+            hit_radius: 1,
+            hover_border_width: 1
         }
     }
 }
 
-impl<X,Y> From<(X, Y, &str)> for DataPointWithTooltip<X,Y>{
-    fn from(value: (X, Y, &str)) -> Self {
-        DataPointWithTooltip{
-            x: value.0,
-            y: value.1,
-            tooltip: value.2.to_string()
-        }
+impl PointConfig {
+    pub fn with_radius(mut self, radius: f32) -> Self{
+        self.radius = radius;
+        self
     }
-}
 
-impl<X:WithTypeAndSerializer,Y:WithTypeAndSerializer> From<ChartData<X,Y>> for Vec<(X,Y)>{
-    fn from(value: ChartData<X, Y>) -> Self {
-        match value {
-            Vector2D(v) => v.into_iter().map(|v| (v.0.0,v.1.0)).collect(),
-            VectorWithRadius(val)=> val.into_iter().map(|v| (v.x.0,v.y.0)).collect(),
-            VectorWithText(val)=> val.into_iter().map(|v|  (v.x.0,v.y.0)).collect()
-        }
+    pub fn with_point_style(mut self, style: PointStyle) -> Self{
+        self.point_style = style;
+        self
     }
-}
-
-impl<X,Y> From<Vec<(X,Y,String)>> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
-    fn from(value: Vec<(X, Y, String)>) -> Self {
-        VectorWithText(value.into_iter().map(|v| (v.0.into(),v.1.into(),v.2).into()).collect())
+    pub fn with_rotation(mut self, rotation: f32) -> Self{
+        self.rotation = rotation;
+        self
     }
-}
-
-impl<const N: usize,X,Y> From<[(X,Y,String);N]> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
-    fn from(value: [(X,Y,String);N]) -> Self {
-        VectorWithText(value.into_iter().map(|v| (v.0.into(),v.1.into(),v.2).into()).collect())
+    pub fn with_border_color(mut self, color: Rgb) -> Self{
+        self.border_color = Some(color);
+        self
     }
-}
-
-impl<X,Y> From<Vec<(X,Y,&str)>> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
-    fn from(value: Vec<(X, Y,&str)>) -> Self {
-        VectorWithText(value.into_iter().map(|v|(v.0.into(),v.1.into(),v.2).into()).collect())
+    pub fn with_background_color(mut self, color: Rgb) -> Self{
+        self.background_color = Some(color);
+        self
     }
-}
 
-impl<const N: usize,X,Y> From<[(X,Y,&str);N]> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
-    fn from(value: [(X,Y,&str);N]) -> Self {
-        VectorWithText(value.into_iter().map(|v|(v.0.into(),v.1.into(),v.2).into()).collect())
+    pub fn with_border_width(mut self, width: u16) -> Self{
+        self.border_width = width;
+        self
     }
-}
-
-
-
-impl<X,Y> From<Vec<(X,Y)>> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
-    fn from(value: Vec<(X, Y)>) -> Self {
-       Vector2D(value.into_iter().map(|v|(v.0.into(),v.1.into())).collect())
+    pub fn with_hover_radius(mut self, radius: u16) -> Self{
+        self.hover_radius = radius;
+        self
     }
-}
-
-impl<const N: usize,X,Y> From<[(X,Y);N]> for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer {
-    fn from(value: [(X,Y);N]) -> Self {
-        Vector2D(value.into_iter().map(|v|(v.0.into(),v.1.into())).collect())
+    pub fn with_hit_radius(mut self, radius: u16) -> Self{
+        self.hit_radius = radius;
+        self
     }
-}
 
-#[derive(Debug, Clone)]
-pub enum ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
-    Vector2D(Vec<(ValueSerializeWrapper<X>,ValueSerializeWrapper<Y>)>),
-    VectorWithRadius(Vec<DataPointWithRadius<ValueSerializeWrapper<X>,ValueSerializeWrapper<Y>>>),
-    VectorWithText(Vec<DataPointWithTooltip<ValueSerializeWrapper<X>,ValueSerializeWrapper<Y>>>)
-}
-
-
-impl<X,Y> Serialize for ChartData<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
-        match self {
-            Vector2D(v) => {
-                let mut v_ser = serializer.serialize_seq(Some(v.len()))?;
-                for (x,y) in v {
-                    let  point = DataPoint{x,y};
-                    v_ser.serialize_element(&point)?;
-                }
-                v_ser.end()
-            },
-            VectorWithRadius(v) => v.serialize(serializer),
-            VectorWithText(v) => v.serialize(serializer)
-        }
+    pub fn with_hover_border_width(mut self, width: u16) -> Self{
+        self.hover_border_width = width;
+        self
     }
+
+
 }
 
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DataPoint<X,Y>{
-    x: X,
-    y: Y
+#[derive(Serialize, Debug, Clone)]
+pub enum PointStyle{
+    Circle,
+    Cross,
+    CrossRot,
+    Dash,
+    Line,
+    Rect,
+    RectRounded,
+    RectRot,
+    Star,
+    Triangle
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DataPointWithTooltip<X,Y>{
-    x: X,
-    y: Y,
-    tooltip: String
-}
 
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DataPointWithRadius<X,Y>{
-    x: X,
-    y: Y,
-    r: u32
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
-enum FillVariant{
+pub enum FillVariant{
     AbsIndex(u8),
     RelativeIndex(String),
     Boundary(Boundary),
@@ -407,18 +473,26 @@ enum FillVariant{
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct AxisValue{
+pub struct AxisValue{
     value: AxisValueVariant
 }
 
+impl AxisValue{
+    pub fn new(value: AxisValueVariant) -> Self{
+        Self{
+            value
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
-enum AxisValueVariant{
+pub enum AxisValueVariant{
     Str(String),
     Num(f64)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-enum Boundary{
+pub enum Boundary{
     Start,
     End,
     Origin,
@@ -438,6 +512,26 @@ struct  Fill {
     below: Option<Rgb>
 }
 
+
+impl Fill {
+
+    pub fn with_target(mut self, target: FillVariant) -> Self{
+        self.target = target;
+        self
+    }
+    pub fn with_above(mut self, color: Rgb) -> Self{
+        self.above = Some(color);
+        self
+    }
+
+    pub fn with_below(mut self, color: Rgb) -> Self{
+        self.below = Some(color);
+        self
+    }
+
+}
+
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 enum AxisName{
@@ -449,6 +543,7 @@ enum AxisName{
 pub struct ChartOptions<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
     pub(crate) scales: Option<ScalingConfig<X,Y>>,
     pub(crate) aspect_ratio: Option<f32>,
+    pub elements: Option<ElementsConfig>,
     pub plugins: Plugins,
 }
 
@@ -458,6 +553,7 @@ impl<X,Y> Default for ChartOptions<X,Y> where X:WithTypeAndSerializer, Y:WithTyp
             scales: None,
             aspect_ratio: None,
             plugins: Plugins::default(),
+            elements: None
         }
     }
 }
@@ -630,7 +726,6 @@ pub enum Alignment{
 }
 
 #[derive(Debug, Clone)]
-#[derive(Default)]
 pub struct Plugins{
     pub title: Option<Title>,
     pub subtitle: Option<Title>,
@@ -638,16 +733,25 @@ pub struct Plugins{
     pub tooltip: Option<Tooltip>
 }
 
+impl Default for Plugins{
+    fn default() -> Self {
+        Plugins{
+            title: None,
+            subtitle: None,
+            legend: None,
+            tooltip: Some(Tooltip::default()),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Legend{
     display: bool,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    position: Option<Position>,
+    position: Position,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    align: Option<Alignment>,
+    align: Alignment,
 
     pub full_size: bool,
 }
@@ -657,8 +761,8 @@ impl Default for Legend{
     fn default() -> Self {
         Legend{
             display: true,
-            position: None,
-            align: None,
+            position: Position::Bottom,
+            align: Alignment::Center,
             full_size: false
         }
     }
@@ -668,14 +772,14 @@ impl Legend {
     pub fn new_position(position: Position) -> Self {
         Self {
             display: true,
-            position: Some(position),
-            align: None,
+            position,
+            align: Alignment::Center,
             full_size: false
         }
     }
 
     pub fn  with_align(mut self, align: Alignment) -> Self {
-        self.align = Some(align);
+        self.align = align;
         self
     }
 
@@ -690,7 +794,7 @@ impl Legend {
     }
 
     pub fn  with_position(mut self, position: Position) -> Self {
-        self.position = Some(position);
+        self.position = position;
         self
     }
 
@@ -751,7 +855,7 @@ impl Default for Tooltip {
             mode: None,
             background_color: None,
             title_color: None,
-            callbacks: None
+            callbacks: TooltipCallbacks::default()
         }
     }
 }
@@ -762,10 +866,10 @@ pub struct Tooltip{
     pub mode: Option<TooltipMode>,
     pub background_color: Option<Rgb>,
     pub title_color: Option<Rgb>,
-    pub callbacks: Option<TooltipCallbacks>
+    pub callbacks: TooltipCallbacks
 }
 
-#[derive(Debug, Clone,Default)]
+#[derive(Debug, Clone)]
 pub struct TooltipCallbacks{
     pub before_title: Option<JsExpr>,
     pub title: Option<JsExpr>,
@@ -780,6 +884,26 @@ pub struct TooltipCallbacks{
     pub before_footer: Option<JsExpr>,
     pub footer: Option<JsExpr>,
     pub after_footer: Option<JsExpr>,
+}
+
+impl Default for TooltipCallbacks{
+    fn default() -> Self {
+        TooltipCallbacks{
+            before_title: None,
+            title: Some(JsExpr(DISPLAY_FN)),
+            after_title: None,
+            before_body: None,
+            before_label: None,
+            label: None,
+            label_color: None,
+            label_text_color: None,
+            after_label: None,
+            after_body: None,
+            before_footer: None,
+            footer: None,
+            after_footer: None,
+        }
+    }
 }
 
 
