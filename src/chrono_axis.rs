@@ -14,14 +14,12 @@ impl<T:TimeZone> WithTypeAndSerializer for DateTime<T> {
     type Serialization = DateTime<T>;
 }
 
-
-
 impl<T:TimeZone> SerializeFormat<DateTime<T>> for DateTime<T>{
     fn serialize<S>(value: &DateTime<T>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer
     {
-        value.timestamp_millis().serialize(serializer)
+        value.to_rfc3339().serialize(serializer)
     }
 }
 
@@ -31,7 +29,7 @@ impl SerializeFormat<chrono::NaiveDateTime> for chrono::NaiveDateTime{
     where
         S: Serializer
     {
-        value.and_utc().timestamp_millis().serialize(serializer)
+        value.and_utc().to_rfc3339().serialize(serializer)
     }
 }
 

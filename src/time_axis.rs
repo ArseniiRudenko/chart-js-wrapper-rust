@@ -3,6 +3,7 @@ use serde::ser::Error;
 use crate::{impl_scale_type, ScaleType};
 use crate::serde::{SerializeFormat, WithTypeAndSerializer};
 use time::{OffsetDateTime, UtcDateTime};
+use time::format_description::well_known::Rfc3339;
 use time::macros::format_description;
 
 impl_scale_type!(Category for time::Month time::Weekday time::Time);
@@ -28,12 +29,16 @@ impl<T: serde::Serialize + ?Sized + ToString> SerializeFormat<T> for time::Month
     }
 }
 
+
+
 impl SerializeFormat<OffsetDateTime> for OffsetDateTime{
     fn serialize<S>(value: &OffsetDateTime, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer
     {
-        (value.unix_timestamp_nanos()/ 1000000).serialize(serializer)
+        let str = value.format(&Rfc3339).map_err(|err| Error::custom(err.to_string()))?;
+        //serialize to rfc string
+        serializer.serialize_str(str.as_str())
     }
 }
 
@@ -43,7 +48,10 @@ impl SerializeFormat<time::PrimitiveDateTime> for time::PrimitiveDateTime{
     where
         S: Serializer
     {
-        (value.as_utc().unix_timestamp_nanos() / 1000000).serialize(serializer)
+
+        let str = value.format(&Rfc3339).map_err(|err| Error::custom(err.to_string()))?;
+        //serialize to rfc string
+        serializer.serialize_str(str.as_str())
     }
 }
 
@@ -53,7 +61,10 @@ impl SerializeFormat<UtcDateTime> for UtcDateTime{
     where
         S: Serializer
     {
-        (value.unix_timestamp_nanos()/ 1000000).serialize(serializer)
+
+        let str = value.format(&Rfc3339).map_err(|err| Error::custom(err.to_string()))?;
+        //serialize to rfc string
+        serializer.serialize_str(str.as_str())
     }
 }
 
@@ -63,7 +74,9 @@ impl SerializeFormat<time::Date> for time::Date{
     where
         S: Serializer
     {
-        (value.midnight().as_utc().unix_timestamp_nanos() / 1000000).serialize(serializer)
+        let str = value.format(&Rfc3339).map_err(|err| Error::custom(err.to_string()))?;
+        //serialize to rfc string
+        serializer.serialize_str(str.as_str())
     }
 }
 
@@ -73,9 +86,8 @@ impl SerializeFormat<time::Time> for time::Time{
     where
         S: Serializer
     {
-        match value.format(format_description!("[hour]:[minute]:[second]")) {
-            Ok(format) => format.serialize(serializer),
-            Err(err) => Err(Error::custom(err.to_string()))
-        }
+        let str = value.format(&Rfc3339).map_err(|err| Error::custom(err.to_string()))?;
+        //serialize to rfc string
+        serializer.serialize_str(str.as_str())
     }
 }

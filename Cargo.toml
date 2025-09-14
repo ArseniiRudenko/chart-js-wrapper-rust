@@ -22,7 +22,7 @@ sailfish = { version = "0.10.0", features = ["derive", "json"] }
 uuid = { version = "1.18.1", features = ["v4"] }
 ndarray = "0.16"
 ndarray-linalg = { version = "0.17", features = ["openblas"] }
-time = { version = "0.3", features = ["serde"] , optional = true }
+time = { version = "0.3", features = ["serde","formatting"] , optional = true }
 chrono = { version = "0.4.42", features = ["serde"], optional = true }
 
 [dev-dependencies]
