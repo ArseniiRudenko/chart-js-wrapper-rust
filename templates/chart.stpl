@@ -9,6 +9,9 @@
             <% if let Some(sc) = options.options.scales { %>
             scales: <%- sc | json %>,
             <% } %>
+            <% if let Some(el) = options.options.elements { %>
+            elements: <%- el | json %>,
+            <% } %>
             <% if let Some(ar) = options.options.aspect_ratio { %>
             aspectRatio: <%- ar | json %>,
             <% } %>
