@@ -544,10 +544,10 @@ enum AxisName{
 
 #[derive(Debug, Clone)]
 pub struct ChartOptions<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
-    scales: Option<ScalingConfig<X,Y>>,
-    aspect_ratio: Option<f32>,
-    elements: Option<ElementsConfig>,
-    plugins: Plugins,
+    pub(crate) scales: Option<ScalingConfig<X,Y>>,
+    pub(crate) aspect_ratio: Option<f32>,
+    pub(crate) elements: Option<ElementsConfig>,
+    pub(crate) plugins: Plugins,
 }
 
 impl<X,Y> Default for ChartOptions<X,Y> where X:WithTypeAndSerializer, Y:WithTypeAndSerializer{
@@ -732,10 +732,10 @@ pub enum Alignment{
 
 #[derive(Debug, Clone)]
 pub struct Plugins{
-    title: Option<Title>,
-    subtitle: Option<Title>,
-    legend: Option<Legend>,
-    tooltip: Option<Tooltip>
+    pub(crate) title: Option<Title>,
+    pub(crate) subtitle: Option<Title>,
+    pub(crate) legend: Option<Legend>,
+    pub(crate) tooltip: Option<Tooltip>
 }
 
 impl Default for Plugins{
