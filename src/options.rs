@@ -70,17 +70,6 @@ where X:WithTypeAndSerializer+Serialize, Y:WithTypeAndSerializer+Serialize{
         self
     }
 
-    pub fn title_str(mut self, text: String) -> Self {
-        self.options.plugins.title = Some(Title{
-                display: true,
-                full_size: false,
-                text: vec![text],
-                padding: None,
-                position: None,
-        });
-        self
-    }
-
     pub fn with_aspect_ratio(mut self, ratio: f32) -> Self {
         self.options.aspect_ratio = Some(ratio);
         self
@@ -698,11 +687,13 @@ pub struct AxisTitle{
 
 impl From<&str> for AxisTitle {
     fn from(value: &str) -> Self {
-        Self{
-            display: true,
-            text: value.to_string(),
-            align: Alignment::Center
-        }
+        AxisTitle::new(value.to_string())
+    }
+}
+
+impl From<String> for AxisTitle{
+    fn from(value: String) -> Self {
+        AxisTitle::new(value)
     }
 }
 
@@ -852,6 +843,18 @@ pub struct Title{
     #[serde(skip_serializing_if = "Option::is_none")]
     position: Option<Position>
 
+}
+
+impl From<String> for Title {
+    fn from(value: String) -> Self {
+        Title::new(value)
+    }
+}
+
+impl From<&str> for Title {
+    fn from(value: &str) -> Self {
+        Title::from(value.to_string())
+    }
 }
 
 impl Title{
