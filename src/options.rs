@@ -116,6 +116,26 @@ where X:WithTypeAndSerializer+Serialize, Y:WithTypeAndSerializer+Serialize{
         legend.display = true;
         self
     }
+
+    pub fn with_title(mut self, title:Title) -> Self{
+        self.options.plugins.title = Some(title);
+        self
+    }
+
+    pub fn with_legend(mut self, legend:Legend) -> Self{
+        self.options.plugins.legend = Some(legend);
+        self
+    }
+
+    pub fn with_tooltip(mut self, tooltip:Tooltip) -> Self{
+        self.options.plugins.tooltip = Some(tooltip);
+        self
+    }
+
+    pub fn with_subtitle(mut self, subtitle:Title) -> Self{
+        self.options.plugins.subtitle = Some(subtitle);
+        self
+    }
     
     pub fn build(self, width: Size, height: Size) -> Chart<X,Y>{
         Chart::new(Uuid::new_v4().to_string(), width, height, self)
@@ -748,7 +768,7 @@ pub struct Legend{
 
     align: Alignment,
 
-    pub full_size: bool,
+    full_size: bool,
 }
 
 
@@ -833,6 +853,60 @@ pub struct Title{
     position: Option<Position>
 
 }
+
+impl Title{
+    pub fn new(text: String) -> Self {
+        Self{
+            display: true,
+            full_size: false,
+            text: vec![text],
+            padding: None,
+            position: None
+        }
+    }
+
+    pub fn from_str(text: &str) -> Self {
+        Self{
+            display: true,
+            full_size: false,
+            text: vec![text.to_string()],
+            padding: None,
+            position: None
+        }
+    }
+
+    pub fn from_array(text: Vec<String>) -> Self {
+        Self{
+            display: true,
+            full_size: false,
+            text,
+            padding: None,
+            position: None
+        }
+    }
+
+    pub fn with_display(mut self, display: bool) -> Self {
+        self.display = display;
+        self
+    }
+    pub fn with_full_size(mut self, full_size: bool) -> Self {
+        self.full_size = full_size;
+        self
+    }
+    pub fn with_text(mut self, text: Vec<String>) -> Self {
+        self.text = text;
+        self
+    }
+    pub fn with_padding(mut self, padding: Padding) -> Self {
+        self.padding = Some(padding);
+        self
+    }
+    pub fn with_position(mut self, position: Position) -> Self {
+        self.position = Some(position);
+        self
+    }
+}
+
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
