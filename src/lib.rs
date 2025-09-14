@@ -12,6 +12,7 @@ pub mod time_axis;
 #[cfg(feature = "chrono_axis")]
 pub mod chrono_axis;
 mod serde;
+mod data;
 
 #[cfg(test)]
 mod tests {
