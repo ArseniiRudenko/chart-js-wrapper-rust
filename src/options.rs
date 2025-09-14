@@ -441,8 +441,6 @@ impl PointConfig {
         self.hover_border_width = width;
         self
     }
-
-
 }
 
 
@@ -459,9 +457,6 @@ pub enum PointStyle{
     Star,
     Triangle
 }
-
-
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
@@ -855,7 +850,7 @@ impl Default for Tooltip {
             mode: None,
             background_color: None,
             title_color: None,
-            callbacks: TooltipCallbacks::default()
+            callbacks: Some(TooltipCallbacks::default())
         }
     }
 }
@@ -866,7 +861,7 @@ pub struct Tooltip{
     pub mode: Option<TooltipMode>,
     pub background_color: Option<Rgb>,
     pub title_color: Option<Rgb>,
-    pub callbacks: TooltipCallbacks
+    pub callbacks: Option<TooltipCallbacks>
 }
 
 #[derive(Debug, Clone)]
