@@ -8,7 +8,7 @@ mod common;
 #[test]
 fn show_chart() {
     let chart_y_cat = ChartConfig::<f64, &str>::default()
-        .title_str("Line and bar".to_string())
+        .with_title("Line and bar".into())
         .add_series(
             ChartType::Line,
             "first_set".to_string(),
@@ -23,7 +23,7 @@ fn show_chart() {
         .build(Size::pixels(600),Size::pixels(400));
 
     let chart_y_cat_bar = ChartConfig::<f64, &str>::default()
-        .title_str("Bar only".to_string())
+        .with_title("Bar only".into())
         .add_series(
             ChartType::Bar,
             "second_set".to_string(),
@@ -35,7 +35,7 @@ fn show_chart() {
 
 
     let chart_x_cat = ChartConfig::<&str,f64>::default()
-        .title_str("Something interesting".to_string())
+        .with_title("Something interesting".into())
         .add_series(
             ChartType::Line,
             "first_set".to_string(),
@@ -58,7 +58,7 @@ fn show_chart() {
 
 
     let numeric_chart = ChartConfig::<f64, f64>::default()
-        .title_str("Something completely different".to_string())
+        .with_title("Something completely different".into())
         .add_linear_regression_series(
             "set 2",
             vec![
@@ -92,7 +92,7 @@ fn show_chart() {
         .build(Size::pixels(600),Size::pixels(400));
 
     let chart_with_custom_labels = ChartConfig::<f64, f64>::default()
-    .title_str("Custom labels".to_string())
+    .with_title("Custom labels".into())
     .add_series(
         ChartType::Line,
         "first_set".to_string(),
