@@ -687,11 +687,13 @@ pub struct AxisTitle{
 
 impl From<&str> for AxisTitle {
     fn from(value: &str) -> Self {
-        Self{
-            display: true,
-            text: value.to_string(),
-            align: Alignment::Center
-        }
+        AxisTitle::new(value.to_string())
+    }
+}
+
+impl From<String> for AxisTitle{
+    fn from(value: String) -> Self {
+        AxisTitle::new(value)
     }
 }
 
