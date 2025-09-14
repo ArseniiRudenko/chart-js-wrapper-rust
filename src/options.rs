@@ -371,18 +371,18 @@ impl LineConfig {
 #[serde(rename_all = "camelCase")]
 pub struct PointConfig{
 
-    radius: f32,
-
-    point_style: PointStyle,
-
-    ///point rotation in degrees
-    rotation: f32,
-
     #[serde(skip_serializing_if = "Option::is_none")]
     border_color: Option<Rgb>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     background_color: Option<Rgb>,
+
+    point_style: PointStyle,
+
+    ///point rotation in degrees
+    rotation: u16,
+
+    radius: u16,
 
     border_width: u16,
 
@@ -397,9 +397,9 @@ pub struct PointConfig{
 impl Default for PointConfig {
     fn default() -> Self {
         PointConfig{
-            radius: 3.0,
+            radius: 3,
             point_style: PointStyle::Circle,
-            rotation: 0.0,
+            rotation: 0,
             border_color: None,
             background_color: None,
             border_width: 1,
@@ -411,7 +411,7 @@ impl Default for PointConfig {
 }
 
 impl PointConfig {
-    pub fn with_radius(mut self, radius: f32) -> Self{
+    pub fn with_radius(mut self, radius: u16) -> Self{
         self.radius = radius;
         self
     }
@@ -420,7 +420,7 @@ impl PointConfig {
         self.point_style = style;
         self
     }
-    pub fn with_rotation(mut self, rotation: f32) -> Self{
+    pub fn with_rotation(mut self, rotation: u16) -> Self{
         self.rotation = rotation;
         self
     }
